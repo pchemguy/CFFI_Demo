@@ -12,7 +12,7 @@ Then run:
 
 from __future__ import annotations
 
-from _ctd_wrapper import ffi, lib
+from ctd._ctd_wrapper import ffi, lib
 
 
 def heading(title: str) -> None:
