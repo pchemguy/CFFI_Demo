@@ -927,10 +927,10 @@ from enum import IntEnum
 class CEnumSpec:
     typedef_name: str
     tag_name: str
-    mirror: type[IntEnum]
+    definition: type[IntEnum]
 ```
 
-Mirror:
+Definition:
 
 ```python
 class CtdStatus(IntEnum):
@@ -948,7 +948,7 @@ Specification:
 CTD_STATUS = CEnumSpec(
     typedef_name="ctd_status",
     tag_name="enum ctd_status",
-    mirror=CtdStatus,
+    definition=CtdStatus,
 )
 ```
 
@@ -993,12 +993,12 @@ def verify_enum_members(spec: CEnumSpec) -> None:
 
     expected = {
         member.name: member.value
-        for member in spec.mirror
+        for member in spec.definition
     }
 
     assert ctype.relements == expected
 
-    for member in spec.mirror:
+    for member in spec.definition:
         assert getattr(lib, member.name) == member.value
 ```
 
@@ -1629,7 +1629,7 @@ class CStructSpec:
 class CEnumSpec:
     typedef_name: str
     tag_name: str
-    mirror: type[IntEnum]
+    definition: type[IntEnum]
 
 
 @dataclass(frozen=True)
