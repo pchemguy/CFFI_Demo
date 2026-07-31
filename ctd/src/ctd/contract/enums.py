@@ -3,7 +3,7 @@ enums.py
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ctd._ctd_wrapper import ffi, lib
 
@@ -16,12 +16,16 @@ __all__ = (
 
 @dataclass
 class CEnumSpec:
-    name: str
+    typedef_name: str
     members: dict[str, int]
-    ctype: ffi.CType | None = None
+    tagged_type_name: str | None = None
+    ctype: ffi.CType = field(init=False)
 
     def __post_init__(self) -> None:
-        self.ctype = ffi.typeof(self.name)
+        if self.tagged_type_name is None:
+            self.tagged_type_name = f"enum {self.typedef_name}"
+
+        self.ctype = ffi.typeof(self.typedef_name)
 
     def verify(self) -> None:
         ctype: ffi.CType = self.ctype
@@ -31,9 +35,11 @@ class CEnumSpec:
             for member_name in self.members
         }
         assert ctype.kind == "enum"
-        assert ctype.cname == f"enum {self.name}"
-        assert self.members == ctype.relements
-        assert self.members == lib_members
+        assert ctype.cname == self.tagged_type_name
+        assert ffi.typeof(self.tagged_type_name) is self.ctype
+        assert ctype.relements == self.members
+        assert lib_members == self.members
+        print(f"Verified '{self.tagged_type_name}'")
 
     def print_info(self) -> None:
         ctype: ffi.CType = self.ctype
@@ -45,13 +51,8 @@ class CEnumSpec:
         )
 
 
-members: tuple[CEnumSpec, ...] = (
-    "ctd_status",
-)
-
-
 ctd_status = CEnumSpec(
-    name="ctd_status",
+    typedef_name="ctd_status",
     members={
         "CTD_OK": 0,
         "CTD_ERROR_NULL": 1,
@@ -63,5 +64,6 @@ ctd_status = CEnumSpec(
 )
 
 
-
-
+members: tuple[CEnumSpec, ...] = (
+    ctd_status,
+)
