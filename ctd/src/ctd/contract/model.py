@@ -19,9 +19,6 @@ __all__ = (
 )
 
 
-CTypeName: TypeAlias = CBuiltinType | str
-
-
 class CBuiltinType(StrEnum):
     BOOL = "_Bool"
 
@@ -61,6 +58,9 @@ class CBuiltinType(StrEnum):
     VOID_POINTER = "void *"
     CHAR_POINTER = "char *"
     CONST_CHAR_POINTER = "const char *"
+
+
+CTypeName: TypeAlias = CBuiltinType | str
 
 
 @dataclass(frozen=True)

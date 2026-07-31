@@ -12,7 +12,13 @@ Then run:
 
 from __future__ import annotations
 
-from ctd._ctd_wrapper import ffi, lib
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.sep.join(os.path.abspath(__file__).split(os.sep)[:-2]))
+
+from _ctd_wrapper import ffi, lib
 
 
 def heading(title: str) -> None:

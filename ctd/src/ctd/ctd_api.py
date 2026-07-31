@@ -1,29 +1,15 @@
 from __future__ import annotations
 
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.sep.join(os.path.abspath(__file__).split(os.sep)[:-2]))
+
 from enum import IntEnum
 
 from _ctd_wrapper import ffi, lib
-
-
-"""
-```c
-typedef enum ctd_status {
-    CTD_OK = 0,
-    CTD_ERROR_NULL = 1,
-    CTD_ERROR_RANGE = 2,
-    CTD_ERROR_CAPACITY = 3,
-    CTD_ERROR_ALLOCATION = 4,
-    CTD_ERROR_DIVIDE_BY_ZERO = 5
-} ctd_status;
-```
-"""
-class CtdStatus(IntEnum):
-    OK                   = lib.CTD_OK
-    ERROR_NULL           = lib.CTD_ERROR_NULL
-    ERROR_RANGE          = lib.CTD_ERROR_RANGE
-    ERROR_CAPACITY       = lib.CTD_ERROR_CAPACITY
-    ERROR_ALLOCATION     = lib.CTD_ERROR_ALLOCATION
-    ERROR_DIVIDE_BY_ZERO = lib.CTD_ERROR_DIVIDE_BY_ZERO
+from contract import model, enums
 
 
 # From C "char *" to Python str
@@ -61,3 +47,11 @@ const char *ctd_version(void);
 def ctd_version() -> str:
     return c_string(lib.ctd_version())
 
+
+def main() -> int:
+    print(dir(enums))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
