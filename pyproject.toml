@@ -4,9 +4,9 @@ build-backend = "hatchling.build"
 
 
 [project]
-name = "cffidemo"
+name = "ctd"
 version = "0.0.0"
-description = "CFFI library usage demonstration."
+description = "CFFI library usage demonstration via a dummy CTD module."
 
 dependencies = [
     "cffi",
@@ -37,7 +37,7 @@ dev = [
 
 
 [tool.hatch.build.targets.wheel]
-packages = ["cffidemo/src/cffidemo"]
+packages = ["ctd/src/ctd"]
 
 
 [tool.ruff]
@@ -114,14 +114,14 @@ unfixable = [
 
 [tool.ruff.lint.isort]
 # Keep imports stable across the repo; update if your top-level package differs.
-known-first-party = ["cffidemo", "ctd"]
+known-first-party = ["ctd"]
 combine-as-imports = true
 
 
 [tool.pytest.ini_options]
 minversion = "8.0"
 addopts = "-ra -q"
-testpaths = ["cffidemo/tests"]
+testpaths = ["ctd/tests"]
 
 
 [tool.mypy]
