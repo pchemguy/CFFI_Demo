@@ -51,8 +51,6 @@ def ctd_version() -> str:
 def main() -> int:
 
     for member in enums.members:
-        #member: enums.CEnumSpec = getattr(enums, name)
-        #print(member)
         member.verify()
         member.print_info()
 
