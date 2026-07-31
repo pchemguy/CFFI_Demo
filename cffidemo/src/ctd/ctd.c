@@ -16,6 +16,8 @@ struct ctd_counter {
 
 CTD_API int ctd_global_counter = 0;
 CTD_API const int ctd_global_constant = 1729;
+CTD_API const char ctd_global_name[] = "ctd";
+CTD_API const ctd_point ctd_global_origin = {0.0, 0.0};
 
 CTD_API const char *ctd_version(void) {
     return "ctd 1.0";

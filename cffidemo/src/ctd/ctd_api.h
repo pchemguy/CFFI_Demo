@@ -83,10 +83,12 @@ typedef int (*ctd_binary_operation)(
 typedef struct ctd_counter ctd_counter;
 
 /*
-** Exported global variables.
+** Exported global variables and constants.
 */
 CTD_API extern int ctd_global_counter;
 CTD_API extern const int ctd_global_constant;
+CTD_API extern const char ctd_global_name[];
+CTD_API extern const ctd_point ctd_global_origin;
 
 /*
 ** General information and error handling.
