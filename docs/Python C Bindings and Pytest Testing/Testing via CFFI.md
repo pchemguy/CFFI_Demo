@@ -1701,3 +1701,161 @@ A normal dataclass can represent expected struct **values**, but it cannot by it
 [1]: https://cffi.readthedocs.io/en/stable/overview.html "Overview — CFFI 2.1.0 documentation"
 [2]: https://cffi.readthedocs.io/en/latest/ref.html "CFFI Reference — CFFI 2.2.0.dev0 documentation"
 [3]: https://cffi.readthedocs.io/en/latest/cdef.html "Preparing Wrapper Modules — CFFI 2.2.0.dev0 documentation"
+
+---
+---
+
+## 📗 CType
+
+> [!NOTE] Prompt
+> 
+> CTypeRef should be StrEnum
+
+Agreed. `CTypeRef` should be a `StrEnum`, not a dataclass wrapper.
+
+```python
+from enum import StrEnum
+
+
+class CTypeRef(StrEnum):
+    BOOL = "_Bool"
+
+    CHAR = "char"
+    SIGNED_CHAR = "signed char"
+    UNSIGNED_CHAR = "unsigned char"
+
+    SHORT = "short"
+    UNSIGNED_SHORT = "unsigned short"
+
+    INT = "int"
+    UNSIGNED_INT = "unsigned int"
+
+    LONG = "long"
+    UNSIGNED_LONG = "unsigned long"
+
+    LONG_LONG = "long long"
+    UNSIGNED_LONG_LONG = "unsigned long long"
+
+    FLOAT = "float"
+    DOUBLE = "double"
+
+    INT8 = "int8_t"
+    UINT8 = "uint8_t"
+    INT16 = "int16_t"
+    UINT16 = "uint16_t"
+    INT32 = "int32_t"
+    UINT32 = "uint32_t"
+    INT64 = "int64_t"
+    UINT64 = "uint64_t"
+
+    SIZE = "size_t"
+    PTRDIFF = "ptrdiff_t"
+    INTPTR = "intptr_t"
+    UINTPTR = "uintptr_t"
+
+    VOID_POINTER = "void *"
+    CHAR_POINTER = "char *"
+    CONST_CHAR_POINTER = "const char *"
+```
+
+Then:
+
+```python
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class CFieldSpec:
+    name: str
+    type: CTypeRef | str
+```
+
+The `| str` remains useful because named application types and arrays are open-ended:
+
+```python
+CFieldSpec("x", CTypeRef.DOUBLE)
+CFieldSpec("minimum", CTypeRef.INT32)
+CFieldSpec("name", "char[16]")
+CFieldSpec("point", "ctd_point")
+CFieldSpec("points", "ctd_point[4]")
+```
+
+The verifier can accept either because `StrEnum` is a `str`:
+
+```python
+def verify_field_type(actual_type, expected: CTypeRef | str) -> None:
+    assert actual_type == ffi.typeof(expected)
+```
+
+For your fixture:
+
+```python
+CTD_POINT = CStructSpec(
+    typedef_name="ctd_point",
+    tag_name="struct ctd_point",
+    fields=(
+        CFieldSpec("x", CTypeRef.DOUBLE),
+        CFieldSpec("y", CTypeRef.DOUBLE),
+    ),
+)
+
+CTD_STATS = CStructSpec(
+    typedef_name="ctd_stats",
+    tag_name="struct ctd_stats",
+    fields=(
+        CFieldSpec("count", CTypeRef.SIZE),
+        CFieldSpec("minimum", CTypeRef.INT32),
+        CFieldSpec("maximum", CTypeRef.INT32),
+        CFieldSpec("sum", CTypeRef.INT64),
+        CFieldSpec("mean", CTypeRef.DOUBLE),
+    ),
+)
+
+CTD_RECORD = CStructSpec(
+    typedef_name="ctd_record",
+    tag_name="struct ctd_record",
+    fields=(
+        CFieldSpec("id", CTypeRef.INT32),
+        CFieldSpec("name", "char[16]"),
+        CFieldSpec("values", "double[3]"),
+    ),
+)
+```
+
+A cleaner name may be `CType` rather than `CTypeRef`:
+
+```python
+class CType(StrEnum):
+    INT = "int"
+    INT32 = "int32_t"
+    DOUBLE = "double"
+    SIZE = "size_t"
+```
+
+`CTypeRef` suggests an arbitrary reference to any named C type, while a finite `StrEnum` is really a catalogue of predefined common types. I would therefore use:
+
+```python
+class CBuiltinType(StrEnum):
+    ...
+```
+
+and allow arbitrary C type spellings separately:
+
+```python
+type CTypeName = CBuiltinType | str
+```
+
+On Python versions before 3.12:
+
+```python
+from typing import TypeAlias
+
+CTypeName: TypeAlias = CBuiltinType | str
+```
+
+That division is more accurate:
+
+* `CBuiltinType` provides controlled reusable scalar spellings.
+* `str` handles user-defined types, pointers, qualified types, and arrays.
+* `CTypeName` is the general type reference accepted by contract specifications.
+
