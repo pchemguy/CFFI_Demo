@@ -20,7 +20,7 @@ def heading(title: str) -> None:
     print("-" * len(title))
 
 
-def c_string(pointer) -> str | None:
+def c_string(pointer: ffi.CData) -> str | None:
     if pointer == ffi.NULL:
         return None
     return ffi.string(pointer).decode("utf-8")
@@ -34,7 +34,7 @@ def show_status(label: str, status: int) -> None:
     print(f"{label}: {status_name(status)} ({status})")
 
 
-def point_tuple(point) -> tuple[float, float]:
+def point_tuple(point: ffi.CData) -> tuple[float, float]:
     return point.x, point.y
 
 
