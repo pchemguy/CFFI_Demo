@@ -8,8 +8,8 @@ sys.path.insert(0, os.sep.join(os.path.abspath(__file__).split(os.sep)[:-2]))
 
 from enum import IntEnum
 
-from _ctd_wrapper import ffi, lib
-from contract import model, enums
+from ctd._ctd_wrapper import ffi, lib
+from contract import enums
 
 
 # From C "char *" to Python str
@@ -49,7 +49,13 @@ def ctd_version() -> str:
 
 
 def main() -> int:
-    print(dir(enums))
+
+    for name in enums.members:
+        member: enums.CEnumSpec = getattr(enums, name)
+        #print(member)
+        member.verify()
+        member.print_info()
+
     return 0
 
 

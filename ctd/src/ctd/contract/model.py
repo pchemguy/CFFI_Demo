@@ -11,7 +11,6 @@ from typing import TypeAlias, Any
 __all__ = (
     "CTypeName",
     "CBuiltinType",
-    "CEnumSpec",
     "CVariable",
     "CConstant",
     "CFieldSpec",
@@ -61,13 +60,6 @@ class CBuiltinType(StrEnum):
 
 
 CTypeName: TypeAlias = CBuiltinType | str
-
-
-@dataclass(frozen=True)
-class CEnumSpec:
-    typedef_name: str
-    tag_name: str
-    definition: type[IntEnum]
 
 
 @dataclass(frozen=True)
