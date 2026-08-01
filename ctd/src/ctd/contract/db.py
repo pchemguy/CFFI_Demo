@@ -2,23 +2,26 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Iterable, Mapping
+from enum import StrEnum
 from pathlib import Path
 from typing import Any, TypeAlias
-from enum import StrEnum
 
 
 __all__ = (
     "CFFIModelDB",
-    "attributes_insert",
+    "CTypeAttributes",
 )
 
 
-PathLike: TypeAlias = str | Path | None
+PathLike: TypeAlias = str | Path
 AttributeRow: TypeAlias = Mapping[str, Any]
 AttributeRows: TypeAlias = AttributeRow | Iterable[AttributeRow]
 
 
 class CTypeAttributes(StrEnum):
+    """Column names accepted by the ``attributes`` table."""
+
+    ID        = "id"
     NAME      = "name"
     CNAME     = "cname"
     KIND      = "kind"
@@ -35,22 +38,30 @@ class CTypeAttributes(StrEnum):
 
 
 def _normalize_value(value: Any) -> Any:
-    """Convert unsupported SQLite values to strings.
+    """Convert values unsupported by SQLite to strings.
 
-    Values natively supported by ``sqlite3`` are preserved. Any other
-    object is converted using ``str(value)``.
+    Values natively accepted by :mod:`sqlite3` are preserved. Any other object
+    is converted by calling :class:`str`.
     """
-    if value is None or isinstance(
-        value,
-        (str, int, float, bytes),
-    ):
+    if value is None or isinstance(value, (str, int, float, bytes)):
         return value
 
     return str(value)
 
 
 def _coerce_rows(rows: AttributeRows) -> tuple[list[AttributeRow], bool]:
-    """Return rows as a list and indicate whether one mapping was supplied."""
+    """Normalize the input into a list of rows.
+
+    Returns:
+        A pair containing the normalized row list and a flag indicating whether
+        the caller supplied one mapping rather than an iterable of mappings.
+
+    Raises:
+        TypeError:
+            If ``rows`` is neither a mapping nor an iterable of mappings.
+        ValueError:
+            If an empty iterable is supplied.
+    """
     if isinstance(rows, Mapping):
         return [rows], True
 
@@ -66,31 +77,39 @@ def _coerce_rows(rows: AttributeRows) -> tuple[list[AttributeRow], bool]:
             "attributes must be a mapping or an iterable of mappings"
         ) from error
 
+    if not result:
+        raise ValueError("attributes cannot be an empty iterable")
+
     return result, False
 
 
 def _normalize_row(row: AttributeRow) -> dict[str, Any]:
-    """Validate and normalize one attributes row."""
+    """Validate and normalize one ``attributes`` row.
+
+    Raises:
+        TypeError:
+            If ``row`` is not a mapping.
+        ValueError:
+            If the mapping is empty or contains an unknown column name.
+    """
     if not isinstance(row, Mapping):
         raise TypeError(
             "Each attributes row must be a mapping, "
             f"not {type(row).__name__}"
         )
 
+    if not row:
+        raise ValueError("An attributes row cannot be empty")
+
     normalized = {
-        str(key): ._normalize_value(value)
+        str(key): _normalize_value(value)
         for key, value in row.items()
     }
 
-    unknown_columns = normalized.keys() - [status.value for status in CTypeAttributes]
+    unknown_columns = normalized.keys() - frozenset(CTypeAttributes)
     if unknown_columns:
         columns = ", ".join(sorted(unknown_columns))
-        raise ValueError(
-            f"Unknown attributes column(s): {columns}"
-        )
-
-    if not normalized:
-        raise ValueError("An attributes row cannot be empty")
+        raise ValueError(f"Unknown attributes column(s): {columns}")
 
     return normalized
 
@@ -98,7 +117,7 @@ def _normalize_row(row: AttributeRow) -> dict[str, Any]:
 class CFFIModelDB:
     """Manage the SQLite database containing the CFFI model.
 
-    By default, the database and schema files are expected beside this script:
+    By default, the database and schema files are located beside this module:
 
     - ``cffi_model.db``
     - ``schema.sql``
@@ -107,38 +126,43 @@ class CFFIModelDB:
     executing the complete contents of ``schema.sql``.
     """
 
-    db_path: PathLike
-    db: sqlite3.Connection | None
+    db_path: Path
+    schema_path: Path
+    db: sqlite3.Connection
 
-    def __init__(self, database: PathLike = None, schema: PathLike = None) -> None:
+    def __init__(
+        self,
+        database: PathLike | None = None,
+        schema: PathLike | None = None,
+    ) -> None:
         """Open or create the CFFI model database.
 
         Args:
             database:
-                SQLite database path. The default is ``cffi_model.db`` beside
-                this script.
+                Database path. The default is ``cffi_model.db`` beside this
+                module.
             schema:
-                Schema file path. The default is ``schema.sql`` beside this
-                script. It is used only when the database file does not exist.
+                Schema path. The default is ``schema.sql`` beside this module.
+                The schema is used only when the database file does not exist.
 
         Raises:
             FileNotFoundError:
-                If the database must be created but the schema file does not
-                exist.
+                If a new database must be initialized but the schema file does
+                not exist.
             sqlite3.Error:
-                If the database cannot be opened or initialized.
+                If SQLite cannot open or initialize the database.
         """
-        script_directory = Path(__file__).resolve().parent
+        module_directory = Path(__file__).resolve().parent
 
         self.db_path = (
             Path(database).expanduser().resolve()
             if database is not None
-            else script_directory / "cffi_model.db"
+            else module_directory / "cffi_model.db"
         )
         self.schema_path = (
             Path(schema).expanduser().resolve()
             if schema is not None
-            else script_directory / "schema.sql"
+            else module_directory / "schema.sql"
         )
 
         database_exists = self.db_path.exists()
@@ -151,19 +175,20 @@ class CFFIModelDB:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
         self.db = sqlite3.connect(self.db_path)
-        self.db.execute("PRAGMA foreign_keys = ON")
 
         try:
+            self.db.execute("PRAGMA foreign_keys = ON")
+
             if not database_exists:
                 self._initialize_schema()
         except Exception:
             self.db.close()
 
-            # Do not leave behind a partially initialized database.
-            try:
-                self.db_path.unlink(missing_ok=True)
-            except OSError:
-                pass
+            if not database_exists:
+                try:
+                    self.db_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
             raise
 
@@ -184,7 +209,7 @@ class CFFIModelDB:
         self.close()
 
     def close(self) -> None:
-        """Close the instance database connection."""
+        """Close the database connection."""
         self.db.close()
 
     def _initialize_schema(self) -> None:
@@ -201,54 +226,51 @@ class CFFIModelDB:
     def attributes_insert(
         self,
         attributes: AttributeRows,
-        connection: sqlite3.Connection | None = None,
+        db: sqlite3.Connection | None = None,
     ) -> int | list[int]:
         """Insert one or more rows into the ``attributes`` table.
 
         Args:
             attributes:
-                A mapping representing one row, or an iterable of mappings.
-                Dictionary keys must be valid ``attributes`` column names.
-                Unsupported SQLite value objects are converted to strings.
-            connection:
-                Optional SQLite connection. When omitted, the connection owned
-                by this instance is used.
+                One mapping representing a row, or an iterable of mappings.
+                Keys must correspond to columns declared by
+                :class:`CTypeAttributes`. Values unsupported by SQLite are
+                converted to strings.
+            db:
+                Optional SQLite connection. The instance connection is used
+                when this argument is omitted.
 
         Returns:
-            The inserted row ID when one mapping is supplied, or a list of row
-            IDs when an iterable of mappings is supplied.
+            The inserted row ID when one mapping is supplied. When an iterable
+            is supplied, returns the inserted row IDs in input order.
 
         Raises:
             TypeError:
-                If the input or any row is not a mapping.
+                If the input or one of its rows is not a mapping.
             ValueError:
-                If a row is empty or contains unknown columns.
+                If a row is empty, an iterable is empty, or a row contains an
+                unknown column.
             sqlite3.Error:
                 If SQLite rejects an insertion.
         """
-        db = connection if connection is not None else self.db
+        db = self.db if db is None else db
+
         rows, single_row = _coerce_rows(attributes)
+        normalized_rows = [_normalize_row(row) for row in rows]
 
         inserted_ids: list[int] = []
 
         with db:
-            for source_row in rows:
-                row = _normalize_row(source_row)
-
+            for row in normalized_rows:
                 columns = tuple(row)
+                column_sql = ", ".join(f'"{column}"' for column in columns)
                 placeholders = ", ".join("?" for _ in columns)
-                column_sql = ", ".join(
-                    f'"{column.replace(chr(34), chr(34) * 2)}"'
-                    for column in columns
-                )
-
-                sql = (
-                    f'INSERT INTO "attributes" ({column_sql}) '
-                    f"VALUES ({placeholders})"
-                )
 
                 cursor = db.execute(
-                    sql,
+                    (
+                        f'INSERT INTO "attributes" ({column_sql}) '
+                        f"VALUES ({placeholders})"
+                    ),
                     tuple(row[column] for column in columns),
                 )
 
@@ -265,60 +287,9 @@ class CFFIModelDB:
         return inserted_ids
 
 
-def attributes_insert(
-    attributes: AttributeRows,
-    connection: sqlite3.Connection,
-) -> int | list[int]:
-    """Insert attributes using an explicitly supplied SQLite connection.
-
-    This module-level convenience function follows the same input and return
-    conventions as :meth:`CFFIModelDB.attributes_insert`.
-    """
-    rows, single_row = CFFIModelDB._coerce_rows(attributes)
-    inserted_ids: list[int] = []
-
-    with connection:
-        for source_row in rows:
-            row = CFFIModelDB._normalize_row(source_row)
-
-            columns = tuple(row)
-            placeholders = ", ".join("?" for _ in columns)
-            column_sql = ", ".join(
-                f'"{column.replace(chr(34), chr(34) * 2)}"'
-                for column in columns
-            )
-
-            cursor = connection.execute(
-                (
-                    f'INSERT INTO "attributes" ({column_sql}) '
-                    f"VALUES ({placeholders})"
-                ),
-                tuple(row[column] for column in columns),
-            )
-
-            if cursor.lastrowid is None:
-                raise sqlite3.DatabaseError(
-                    "SQLite did not return an inserted row ID"
-                )
-
-            inserted_ids.append(cursor.lastrowid)
-
-    if single_row:
-        return inserted_ids[0]
-
-    return inserted_ids
-
-
 def main() -> int:
-    with CFFIModelDB() as database:
-        database.attributes_insert(
-            {
-                "name": "example",
-                "cname": "example_t",
-                "kind": "type",
-                "group": "demo",
-            }
-        )
+    with CFFIModelDB():
+        pass
 
     return 0
 
