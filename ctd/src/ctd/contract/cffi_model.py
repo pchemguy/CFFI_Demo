@@ -49,6 +49,28 @@ class CTypeKinds(StrEnum):
     ENUM      = "enum"
 
 
+class CTypeGroups(StrEnum):
+    TYPEDEF = "typedef_names"
+    STRUCT  = "names_of_structs"
+    UNION   = "names_of_unions"
+
+
+class CTypeAttributes(StrEnum):
+    NAME      = "name"
+    CNAME     = "cname"
+    KIND      = "kind"
+    GROUP     = "group"
+    ITEM      = "item"
+    LENGTH    = "length"
+    FIELDS    = "fields"
+    ARGS      = "args"
+    RESULT    = "result"
+    ELLIPSIS  = "ellipsis"
+    ABI       = "abi"
+    ELEMENTS  = "elements"
+    RELEMENTS = "relements"
+
+
 @dataclass
 class CFFICTypes:
     typedef_names: list[str] | None =  field(init=False)
