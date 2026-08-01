@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.sep.join(os.path.abspath(__file__).split(os.sep)[:-2]))
 
 from ctd._ctd_wrapper import ffi, lib
-from contract import cffi_model, enums
+from contract import cffi_model, enums, database
 
 
 # From C "char *" to Python str
@@ -64,11 +64,40 @@ def main() -> int:
     #pretty_json = json.dumps(ctypes, indent=4)
     #print(pretty_json)
 
+    db: database.CFFIModelDB = database.CFFIModelDB()
     cffi_model.CFFITarget.bind(ffi, lib)
     ctypes: cffi_model.CFFICTypes = cffi_model.CFFICTypes()
     ctypes.get_ctypes()
 
-    pprint(ctypes.structs)
+    typedefs = []
+    for name, data in ctypes.typedefs.items():
+        item = data.copy()
+        item.pop("ctype", None)
+        item["name"] = name
+        item["group"] = "typedef_names"
+        typedefs.append(item)
+
+    unions = []
+    for name, data in ctypes.unions.items():
+        item = data.copy()
+        item.pop("ctype", None)
+        item["name"] = name
+        item["group"] = "union_names"
+        unions.append(item)
+
+    structs = []
+    for name, data in ctypes.structs.items():
+        item = data.copy()
+        item.pop("ctype", None)
+        item["name"] = name
+        item["group"] = "struct_names"
+        structs.append(item)
+
+    db.attributes_insert(typedefs)
+    db.attributes_insert(unions)
+    db.attributes_insert(structs)
+    
+    pprint(structs)
 
 
     return 0
