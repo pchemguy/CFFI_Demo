@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import os
 import sys
+import json
+from pprint import pprint
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.sep.join(os.path.abspath(__file__).split(os.sep)[:-2]))
 
-from enum import IntEnum
-
 from ctd._ctd_wrapper import ffi, lib
-from contract import enums
+from contract import cffi_model, enums
 
 
 # From C "char *" to Python str
@@ -57,7 +57,18 @@ def ctd_version() -> str:
 
 
 def main() -> int:
-    verify_enums()
+    # verify_enums()
+    #print(dir(ffi))
+    
+    #ctypes = ffi.list_types()
+    #pretty_json = json.dumps(ctypes, indent=4)
+    #print(pretty_json)
+
+    cffi_model.CFFITarget.bind(ffi, lib)
+    ctypes: cffi_model.CFFICTypes = cffi_model.CFFICTypes()
+    ctypes.get_ctypes()
+
+    pprint(ctypes.structs)
 
 
     return 0
