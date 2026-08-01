@@ -1,3 +1,6 @@
+---
+url: https://chatgpt.com/c/6a6e48fc-0b94-83ed-aba5-92e1afc178ae
+---
 ## 📗 CFFI CTypes Attributes  SQLite
 
 > [!NOTE] Prompt

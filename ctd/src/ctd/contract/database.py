@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sqlite3
 from collections.abc import Iterable, Mapping
 from enum import StrEnum
@@ -113,6 +114,62 @@ def _normalize_row(row: AttributeRow) -> dict[str, Any]:
     return normalized
 
 
+def _resolve_database_path(
+    database: PathLike | None,
+    filename: str = "cffi_model.db"
+) -> Path:
+    """Resolve a database file or database-directory argument.
+
+    Existing paths are classified by their filesystem type. A nonexistent
+    path is classified as a database file only when its final component has
+    an extension and the supplied path does not end with a path separator.
+    Directory arguments must identify existing directories.
+    """
+    module_directory = Path(__file__).resolve().parent
+
+    if database is None:
+        return module_directory / filename
+
+    database_text = os.fspath(database)
+    database_path = Path(database).expanduser()
+
+    path_separators = tuple(
+        separator
+        for separator in (os.sep, os.altsep)
+        if separator is not None
+    )
+    terminal_path_separator = database_text.endswith(path_separators)
+
+    if database_path.exists():
+        resolved = database_path.resolve()
+
+        if resolved.is_dir():
+            return resolved / filename
+
+        if resolved.is_file():
+            return resolved
+
+        raise ValueError(
+            "Database path must identify a regular file or directory: "
+            f"{resolved}"
+        )
+
+    resolved = database_path.resolve()
+
+    if terminal_path_separator or not database_path.suffix:
+        raise FileNotFoundError(
+            f"Database directory does not exist: {resolved}"
+        )
+
+    if not resolved.parent.is_dir():
+        raise FileNotFoundError(
+            "Database parent directory does not exist: "
+            f"{resolved.parent}"
+        )
+
+    return resolved
+
+
 class CFFIModelDB:
     """Manage the SQLite database containing the CFFI model.
 
@@ -151,17 +208,12 @@ class CFFIModelDB:
             sqlite3.Error:
                 If SQLite cannot open or initialize the database.
         """
-        module_directory = Path(__file__).resolve().parent
+        self.db_path = _resolve_database_path(database)
 
-        self.db_path = (
-            Path(database).expanduser().resolve()
-            if database is not None
-            else module_directory / "cffi_model.db"
-        )
         self.schema_path = (
             Path(schema).expanduser().resolve()
             if schema is not None
-            else module_directory / "schema.sql"
+            else Path(__file__).resolve().parent / "schema.sql"
         )
 
         database_exists = self.db_path.exists()
@@ -170,8 +222,6 @@ class CFFIModelDB:
             raise FileNotFoundError(
                 f"Schema file not found: {self.schema_path}"
             )
-
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
         self.db = sqlite3.connect(self.db_path)
 
