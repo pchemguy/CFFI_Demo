@@ -277,7 +277,14 @@ class CFFIModelDB:
         attributes: AttributeRows,
         db: sqlite3.Connection | None = None,
     ) -> int | list[int]:
-        """Insert one or more rows into the ``attributes`` table.
+        """Insert or update one or more rows in the ``attributes`` table.
+
+        A new row is inserted when neither its ``name`` nor its ``cname`` conflicts
+        with an existing row. If a uniqueness conflict occurs, the existing row is
+        updated with the values supplied by the input mapping.
+
+        Only supplied columns are updated. The ``id`` primary key is never changed
+        during an update.
 
         Args:
             attributes:
@@ -286,54 +293,72 @@ class CFFIModelDB:
                 :class:`CTypeAttributes`. Values unsupported by SQLite are
                 converted to strings.
             db:
-                Optional SQLite connection. The instance connection is used
-                when this argument is omitted.
+                Optional SQLite connection. The instance connection is used when
+                this argument is omitted.
 
         Returns:
-            The inserted row ID when one mapping is supplied. When an iterable
-            is supplied, returns the inserted row IDs in input order.
+            The affected row ID when one mapping is supplied. When an iterable is
+            supplied, returns the affected row IDs in input order.
 
         Raises:
             TypeError:
                 If the input or one of its rows is not a mapping.
             ValueError:
-                If a row is empty, an iterable is empty, or a row contains an
-                unknown column.
+                If a row is empty, an iterable is empty, a row contains an unknown
+                column, or a row contains no column that can be updated.
             sqlite3.Error:
-                If SQLite rejects an insertion.
+                If SQLite rejects an insertion or update.
         """
         db = self.db if db is None else db
 
         rows, single_row = _coerce_rows(attributes)
         normalized_rows = [_normalize_row(row) for row in rows]
 
-        inserted_ids: list[int] = []
+        affected_ids: list[int] = []
 
         with db:
             for row in normalized_rows:
                 columns = tuple(row)
+                update_columns = tuple(
+                    column
+                    for column in columns
+                    if column != CTypeAttributes.ID
+                )
+
+                if not update_columns:
+                    raise ValueError(
+                        'An attributes row must contain a column other than "id"'
+                    )
+
                 column_sql = ", ".join(f'"{column}"' for column in columns)
                 placeholders = ", ".join("?" for _ in columns)
+                update_sql = ", ".join(
+                    f'"{column}" = excluded."{column}"'
+                    for column in update_columns
+                )
 
                 cursor = db.execute(
                     (
                         f'INSERT INTO "attributes" ({column_sql}) '
-                        f"VALUES ({placeholders})"
+                        f"VALUES ({placeholders}) "
+                        f"ON CONFLICT DO UPDATE SET {update_sql} "
+                        f'RETURNING "id"'
                     ),
                     tuple(row[column] for column in columns),
                 )
 
-                if cursor.lastrowid is None:
+                result = cursor.fetchone()
+                if result is None:
                     raise sqlite3.DatabaseError(
-                        "SQLite did not return an inserted row ID"
+                        "SQLite did not return the affected row ID"
                     )
 
-                inserted_ids.append(cursor.lastrowid)
+                affected_ids.append(result[0])
 
         if single_row:
-            return inserted_ids[0]
+            return affected_ids[0]
 
-        return inserted_ids
+        return affected_ids
 
 
 def main() -> int:
