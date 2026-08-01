@@ -39,6 +39,14 @@ def point_tuple(point: ffi.CData) -> tuple[float, float]:
     return point.x, point.y
 
 
+def verify_enums() -> None:
+    enums.CFFITarget.bind(ffi, lib)
+
+    for member in enums.members:
+        member.verify()
+        member.print_info()
+
+
 """
 ```c
 const char *ctd_version(void);
@@ -49,12 +57,8 @@ def ctd_version() -> str:
 
 
 def main() -> int:
+    verify_enums()
 
-    enums.CFFITarget.bind(ffi, lib)
-
-    for member in enums.members:
-        member.verify()
-        member.print_info()
 
     return 0
 
