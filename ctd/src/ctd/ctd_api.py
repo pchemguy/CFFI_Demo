@@ -50,6 +50,8 @@ def ctd_version() -> str:
 
 def main() -> int:
 
+    enums.CFFITarget.bind(ffi, lib)
+
     for member in enums.members:
         member.verify()
         member.print_info()
