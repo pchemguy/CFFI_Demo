@@ -1,6 +1,6 @@
 PRAGMA foreign_keys = 0;
 
-DROP TABLE IF EXISTS attributes;
+DROP TABLE IF EXISTS ctypes;
 DROP TABLE IF EXISTS kinds;
 
 CREATE TABLE kinds (
@@ -8,11 +8,12 @@ CREATE TABLE kinds (
     "name" TEXT COLLATE NOCASE NOT NULL UNIQUE
 );
 
-CREATE TABLE attributes (
-    "id" INTEGER PRIMARY KEY,
+CREATE TABLE ctypes (
+    "id"        INTEGER PRIMARY KEY,
     "name"      TEXT COLLATE NOCASE NOT NULL UNIQUE,
+    "category"  TEXT COLLATE NOCASE NOT NULL CHECK("category" IN ('typedef', 'instance')),
     "cname"     TEXT COLLATE NOCASE NOT NULL,
-    "kind"      TEXT COLLATE NOCASE NOT NULL,
+    "kind"      TEXT COLLATE NOCASE,
     "item"      TEXT COLLATE NOCASE,
     "length"    INTEGER,
     "fields"    TEXT COLLATE NOCASE,
@@ -22,7 +23,7 @@ CREATE TABLE attributes (
     "abi"       TEXT COLLATE NOCASE,
     "elements"  TEXT COLLATE NOCASE,
     "relements" TEXT COLLATE NOCASE,
-    CONSTRAINT "fk_attributes_kind_kinds_name"
+    CONSTRAINT "fk_ctypes_kind_kinds_name"
         FOREIGN KEY ("kind") REFERENCES "kinds"("name")
 );
 

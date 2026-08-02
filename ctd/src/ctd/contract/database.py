@@ -23,6 +23,7 @@ class CTypeAttributes(StrEnum):
     """Column names accepted by the ``attributes`` table."""
     ID        = "id"
     NAME      = "name"
+    CATEGORY  = "category"
     CNAME     = "cname"
     KIND      = "kind"
     GROUP     = "group"

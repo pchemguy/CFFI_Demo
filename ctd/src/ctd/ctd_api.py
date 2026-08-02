@@ -70,36 +70,63 @@ def main() -> int:
     cffi_model.CFFITarget.bind(ffi, lib)
     ctypes: cffi_model.CFFICTypes = cffi_model.CFFICTypes()
 
-    ctype_names: list[str] = ctypes.get_ctypes()
-    definitions: list[dict[str, Any]] = ctypes.ctypes
+    ffi_names: list[str] = ctypes.get_ctypes()
+    ffi_ctypes: list[dict[str, Any]] = ctypes.ffi_ctypes
 
-    definitions_filtered: dict[str, Any] = [
+    ffi_ctypes_filtered: dict[str, Any] = [
         {prop: value for prop, value in desc.items() if prop != "ctype"}
-        for desc in definitions
+        for desc in ffi_ctypes
     ]
 
-    db.ctypes_insert(definitions_filtered)
-    print(inspect.getmembers(definitions[0]["ctype"]))
-    print(definitions[2]["ctype"].fields)
+    db.ctypes_insert(ffi_ctypes_filtered)
+
+    lib_names: list[str] = ctypes.lib_names
+    lib_ctypes: list[dict[str, Any]] = ctypes.lib_ctypes
+    lib_ctypes_filtered: dict[str, Any] = [
+        {prop: value for prop, value in desc.items() if prop != "ctype"}
+        for desc in lib_ctypes
+    ]
+
+    db.ctypes_insert(lib_ctypes_filtered)
+    
+    #print(inspect.getmembers(definitions[0]["ctype"]))
+    #print(definitions[2]["ctype"].fields)
     attr_names: list[str] = [member.value for member in cffi_model.CTypeAttributes if member.value != "name"]
 
-    attrs = {name: getattr(definitions[0]["ctype"], name, None) for name in attr_names}
+    attrs = {name: getattr(ffi_ctypes[0]["ctype"], name, None) for name in attr_names}
     
-    pprint(definitions)
-    print(attr_names)
-    print(attrs)
-    print(dir(definitions[0]["ctype"].result))
+    #pprint(ffi_ctypes)
+    #print(attr_names)
+    #print(attrs)
+    #print(dir(ffi_ctypes[0]["ctype"].result))
 
-    args = definitions[0]["ctype"].args
-    for arg in args:
-        print(dir(arg))
-    print(dir(args[2].item))
+    #args = ffi_ctypes[0]["ctype"].args
+    #for arg in args:
+    #    print(dir(arg))
+    #print(dir(args[2].item))
 
-    field = definitions[3]["ctype"].fields[1][1]
+    #field = ffi_ctypes[3]["ctype"].fields[1][1]
 
     print("\n\n-----------------------------------\n\n")
 
-    print(dir(lib))
+    #print(set(dir(lib)) - ctypes.enum_members)
+    #print("\n\n-----------------------------------\n\n")
+
+    #print(ctypes.enum_members)
+
+    #for name in dir(lib):
+    #    try:
+    #        print(f"name: {name}. ctype: {ffi.typeof(getattr(lib, name))}.")
+    #    except TypeError:
+    #        print(f"name: {name}. ctype: {None}.")
+
+    print(ctypes.lib_names)
+
+    #for name in ctypes.lib_names:
+    #    try:
+    #        print(f"name: {name}. ctype: {ffi.typeof(getattr(lib, name))}.")
+    #    except TypeError:
+    #        print(f"name: {name}. ctype: {type(getattr(lib, name))}.")
 
     return 0
 
