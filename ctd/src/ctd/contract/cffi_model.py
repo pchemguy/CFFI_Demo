@@ -142,7 +142,7 @@ def _process_field(fields: list | tuple, seen: set) -> list[dict[str, Any]]:
             field_dict["field_object"] = field_value
 
         fields_list.append(field_dict)
-    print(fields_list)
+    
     return fields_list
 
 

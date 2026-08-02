@@ -72,6 +72,7 @@ def main() -> int:
 
     ctype_names: list[str] = ctypes.get_ctypes()
     definitions: list[dict[str, Any]] = ctypes.ctypes
+
     definitions_filtered: dict[str, Any] = [
         {prop: value for prop, value in desc.items() if prop != "ctype"}
         for desc in definitions
