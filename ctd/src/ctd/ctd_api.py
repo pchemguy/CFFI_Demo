@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 import sys
 import json
+from typing import Any
+import inspect
 from pprint import pprint
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -67,38 +69,31 @@ def main() -> int:
     db: database.CFFIModelDB = database.CFFIModelDB()
     cffi_model.CFFITarget.bind(ffi, lib)
     ctypes: cffi_model.CFFICTypes = cffi_model.CFFICTypes()
-    ctypes.get_ctypes()
 
-    typedefs = []
-    for name, data in ctypes.typedefs.items():
-        item = data.copy()
-        item.pop("ctype", None)
-        item["name"] = name
-        item["group"] = "typedef_names"
-        typedefs.append(item)
+    ctype_names: list[str] = ctypes.get_ctypes()
+    definitions: list[dict[str, Any]] = ctypes.ctypes
+    definitions_filtered: dict[str, Any] = [
+        {prop: value for prop, value in desc.items() if prop != "ctype"}
+        for desc in definitions
+    ]
 
-    unions = []
-    for name, data in ctypes.unions.items():
-        item = data.copy()
-        item.pop("ctype", None)
-        item["name"] = name
-        item["group"] = "union_names"
-        unions.append(item)
+    print("\n==============\n", definitions_filtered, "\n--------------\n")
+    # db.attributes_insert(definitions_filtered)
+    print(inspect.getmembers(definitions[0]["ctype"]))
+    print(definitions[2]["ctype"].fields)
+    attr_names: list[str] = [member.value for member in cffi_model.CTypeAttributes if member.value != "name"]
 
-    structs = []
-    for name, data in ctypes.structs.items():
-        item = data.copy()
-        item.pop("ctype", None)
-        item["name"] = name
-        item["group"] = "struct_names"
-        structs.append(item)
-
-    db.attributes_insert(typedefs)
-    db.attributes_insert(unions)
-    db.attributes_insert(structs)
+    attrs = {name: getattr(definitions[0]["ctype"], name, None) for name in attr_names}
     
-    pprint(structs)
+    pprint(definitions)
+    print(attr_names)
+    print(attrs)
+    print(dir(definitions[0]["ctype"].result))
 
+    args = definitions[0]["ctype"].args
+    for arg in args:
+        print(dir(arg))
+    print(dir(args[2].item))
 
     return 0
 

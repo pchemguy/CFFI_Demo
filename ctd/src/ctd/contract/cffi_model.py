@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
@@ -59,7 +60,6 @@ class CTypeAttributes(StrEnum):
     NAME      = "name"
     CNAME     = "cname"
     KIND      = "kind"
-    GROUP     = "group"
     ITEM      = "item"
     LENGTH    = "length"
     FIELDS    = "fields"
@@ -71,14 +71,66 @@ class CTypeAttributes(StrEnum):
     RELEMENTS = "relements"
 
 
+_attr_names: list[str] = [member.value for member in CTypeAttributes]
+
+
+def _ctype2dict(ctype: ffi.CType) -> dict[str, Any]:
+    if cffi_target is None:
+        raise RuntimeError(
+            "CFFI target is not initialized; call CFFITarget.bind(ffi, lib) "
+            "before creating CEnumSpec instances"
+        )
+
+    ffi = cffi_target.ffi
+
+    ctype_dict: dict[str, Any] = {
+        attr_name: getattr(ctype, attr_name, None)
+        for attr_name in _attr_names if _attr_names != "name"
+    }
+
+    result: ffi.CType = getattr(ctype, "result", None)
+    result_json: str | None = None if result is None else json.dumps({
+        "cname": result.cname,
+        "kind":  result.kind,
+    }, indent=4)
+
+    elements: dict[int, str] | None = getattr(ctype, "elements", None)
+    elements_json: str | None = None if elements is None else json.dumps(
+        elements, indent=4, sort_keys=True
+    )
+    
+    relements: dict[int, str] | None = getattr(ctype, "relements", None)
+    if relements:
+        print(dict(sorted(relements.items(), key=lambda item: item[1])))
+    relements_json: str | None = None if relements is None else json.dumps(
+        dict(sorted(relements.items(), key=lambda item: item[1])),
+        indent=4,
+    )
+    
+    ctype_dict.update({
+        "ctype":     ctype,
+        "result":    result_json,
+        "elements":  elements_json,
+        "relements": relements_json,
+    })
+
+    return ctype_dict
+
+
+def _ctypename2dict(name: str) -> dict[str, Any]:
+    if cffi_target is None:
+        raise RuntimeError(
+            "CFFI target is not initialized; call CFFITarget.bind(ffi, lib) "
+            "before creating CEnumSpec instances"
+        )
+
+    return {"name": name} | _ctype2dict(cffi_target.ffi.typeof(name))
+
+
 @dataclass
 class CFFICTypes:
-    typedef_names: list[str] | None =  field(init=False)
-    struct_names:  list[str] | None =  field(init=False)
-    union_names:   list[str] | None =  field(init=False)
-    typedefs: "dict[str, dict[str, Any]]" = field(default_factory=dict)
-    structs:  "dict[str, dict[str, Any]]" = field(default_factory=dict)
-    unions:   "dict[str, dict[str, Any]]" = field(default_factory=dict)
+    ctype_names: list[str] | None =  field(init=False)
+    ctypes: "list[dict[str, Any]]" = field(default_factory=list)
 
     def get_ctypes(self) -> None:
         if cffi_target is None:
@@ -90,35 +142,9 @@ class CFFICTypes:
         ffi = cffi_target.ffi
         lib = cffi_target.lib
 
-        ctypes: list[list[str]] = ffi.list_types()
-        self.typedef_names, self.struct_names, self.union_names = ctypes
+        ctype_names: list[str] = sorted(set().union(*ffi.list_types()))
+        self.ctype_names = ctype_names
+       
+        self.ctypes = [_ctypename2dict(ctype_name) for ctype_name in ctype_names]
 
-        ctype: ffi.CType
-
-        for name in self.typedef_names:
-            ctype = ffi.typeof(name)
-            self.typedefs[name] = {
-                "ctype": ctype,
-                "cname": ctype.cname,
-                "kind":  ctype.kind,
-            }
-
-        for name in self.struct_names:
-            ctype = ffi.typeof(f"struct {name}")
-            self.structs[name] = {
-                "ctype": ctype,
-                "cname": ctype.cname,
-                "kind":  ctype.kind,
-            }
-
-        for name in self.union_names:
-            ctype = ffi.typeof(f"union {name}")
-            self.unions[name] = {
-                "ctype": ctype,
-                "cname": ctype.cname,
-                "kind":  ctype.kind,
-            }
-        
-        return ctypes
-
-
+        return ctype_names
