@@ -14,14 +14,13 @@ __all__ = (
 )
 
 
-PathLike: TypeAlias = str | Path
-AttributeRow: TypeAlias = Mapping[str, Any]
-AttributeRows: TypeAlias = AttributeRow | Iterable[AttributeRow]
+PathLike:  TypeAlias = str | Path
+CTypeRow:  TypeAlias = Mapping[str, Any]
+CTypeRows: TypeAlias = CTypeRow | Iterable[CTypeRow]
 
 
 class CTypeAttributes(StrEnum):
     """Column names accepted by the ``attributes`` table."""
-
     ID        = "id"
     NAME      = "name"
     CNAME     = "cname"
@@ -50,7 +49,6 @@ def _normalize_value(value: Any) -> Any:
     return str(value)
 
 
-
 def _normalize_value(value: Any) -> Any:
     """Convert values unsupported by SQLite to JSON or plain strings.
 
@@ -67,7 +65,7 @@ def _normalize_value(value: Any) -> Any:
         return str(value)
 
 
-def _coerce_rows(rows: AttributeRows) -> tuple[list[AttributeRow], bool]:
+def _coerce_rows(rows: CTypeRows) -> tuple[list[CTypeRow], bool]:
     """Normalize the input into a list of rows.
 
     Returns:
@@ -85,24 +83,24 @@ def _coerce_rows(rows: AttributeRows) -> tuple[list[AttributeRow], bool]:
 
     if isinstance(rows, (str, bytes, bytearray)):
         raise TypeError(
-            "attributes must be a mapping or an iterable of mappings"
+            "ctypes must be a mapping or an iterable of mappings"
         )
 
     try:
         result = list(rows)
     except TypeError as error:
         raise TypeError(
-            "attributes must be a mapping or an iterable of mappings"
+            "ctypes must be a mapping or an iterable of mappings"
         ) from error
 
     if not result:
-        raise ValueError("attributes cannot be an empty iterable")
+        raise ValueError("ctypes cannot be an empty iterable")
 
     return result, False
 
 
-def _normalize_row(row: AttributeRow) -> dict[str, Any]:
-    """Validate and normalize one ``attributes`` row.
+def _normalize_row(row: CTypeRow) -> dict[str, Any]:
+    """Validate and normalize one ``ctypes`` row.
 
     Raises:
         TypeError:
@@ -112,12 +110,12 @@ def _normalize_row(row: AttributeRow) -> dict[str, Any]:
     """
     if not isinstance(row, Mapping):
         raise TypeError(
-            "Each attributes row must be a mapping, "
+            "Each ctypes row must be a mapping, "
             f"not {type(row).__name__}"
         )
 
     if not row:
-        raise ValueError("An attributes row cannot be empty")
+        raise ValueError("A ctypes row cannot be empty")
 
     normalized = {
         str(key): _normalize_value(value)
@@ -127,7 +125,7 @@ def _normalize_row(row: AttributeRow) -> dict[str, Any]:
     unknown_columns = normalized.keys() - frozenset(CTypeAttributes)
     if unknown_columns:
         columns = ", ".join(sorted(unknown_columns))
-        raise ValueError(f"Unknown attributes column(s): {columns}")
+        raise ValueError(f"Unknown ctypes column(s): {columns}")
 
     return normalized
 
@@ -290,12 +288,12 @@ class CFFIModelDB:
             self.db.rollback()
             raise
 
-    def attributes_insert(
+    def ctypes_insert(
         self,
-        attributes: AttributeRows,
+        ctypes: CTypeRows,
         db: sqlite3.Connection | None = None,
     ) -> int | list[int]:
-        """Insert or update one or more rows in the ``attributes`` table.
+        """Insert or update one or more rows in the ``ctypes`` table.
 
         A new row is inserted when neither its ``name`` nor its ``cname`` conflicts
         with an existing row. If a uniqueness conflict occurs, the existing row is
@@ -305,7 +303,7 @@ class CFFIModelDB:
         during an update.
 
         Args:
-            attributes:
+            ctypes:
                 One mapping representing a row, or an iterable of mappings.
                 Keys must correspond to columns declared by
                 :class:`CTypeAttributes`. Values unsupported by SQLite are
@@ -329,7 +327,7 @@ class CFFIModelDB:
         """
         db = self.db if db is None else db
 
-        rows, single_row = _coerce_rows(attributes)
+        rows, single_row = _coerce_rows(ctypes)
         normalized_rows = [_normalize_row(row) for row in rows]
 
         affected_ids: list[int] = []
@@ -345,7 +343,7 @@ class CFFIModelDB:
 
                 if not update_columns:
                     raise ValueError(
-                        'An attributes row must contain a column other than "id"'
+                        'A ctypes row must contain a column other than "id"'
                     )
 
                 column_sql = ", ".join(f'"{column}"' for column in columns)
@@ -357,7 +355,7 @@ class CFFIModelDB:
 
                 cursor = db.execute(
                     (
-                        f'INSERT INTO "attributes" ({column_sql}) '
+                        f'INSERT INTO "ctypes" ({column_sql}) '
                         f"VALUES ({placeholders}) "
                         f"ON CONFLICT DO UPDATE SET {update_sql} "
                         f'RETURNING "id"'

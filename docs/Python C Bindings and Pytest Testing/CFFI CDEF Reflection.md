@@ -240,7 +240,6 @@ You can inspect it when:
   ```
 
 * it has a typedef, and that typedef appears in `typedef_names`;
-
 * it is reached recursively through another declared type.
 
 For systematic introspection, giving every important enum a typedef is therefore practical:
