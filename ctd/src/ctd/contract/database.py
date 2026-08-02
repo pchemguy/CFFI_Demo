@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 import sqlite3
 from collections.abc import Iterable, Mapping
 from enum import StrEnum
@@ -47,6 +48,23 @@ def _normalize_value(value: Any) -> Any:
         return value
 
     return str(value)
+
+
+
+def _normalize_value(value: Any) -> Any:
+    """Convert values unsupported by SQLite to JSON or plain strings.
+
+    Values natively accepted by :mod:`sqlite3` are preserved. Other values are
+    first serialized as JSON. If JSON serialization fails, they are converted
+    by calling :class:`str`.
+    """
+    if value is None or isinstance(value, (str, int, float, bytes)):
+        return value
+
+    try:
+        return json.dumps(value, ensure_ascii=False)
+    except (TypeError, ValueError):
+        return str(value)
 
 
 def _coerce_rows(rows: AttributeRows) -> tuple[list[AttributeRow], bool]:

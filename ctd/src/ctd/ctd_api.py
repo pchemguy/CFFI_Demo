@@ -77,8 +77,7 @@ def main() -> int:
         for desc in definitions
     ]
 
-    print("\n==============\n", definitions_filtered, "\n--------------\n")
-    # db.attributes_insert(definitions_filtered)
+    db.attributes_insert(definitions_filtered)
     print(inspect.getmembers(definitions[0]["ctype"]))
     print(definitions[2]["ctype"].fields)
     attr_names: list[str] = [member.value for member in cffi_model.CTypeAttributes if member.value != "name"]

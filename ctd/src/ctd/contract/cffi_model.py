@@ -74,7 +74,7 @@ class CTypeAttributes(StrEnum):
 _attr_names: list[str] = [member.value for member in CTypeAttributes]
 
 
-def _ctype2dict(ctype: ffi.CType) -> dict[str, Any]:
+def _ctype2dict(ctype: "ffi.CType") -> dict[str, Any]:
     if cffi_target is None:
         raise RuntimeError(
             "CFFI target is not initialized; call CFFITarget.bind(ffi, lib) "
@@ -83,36 +83,20 @@ def _ctype2dict(ctype: ffi.CType) -> dict[str, Any]:
 
     ffi = cffi_target.ffi
 
-    ctype_dict: dict[str, Any] = {
-        attr_name: getattr(ctype, attr_name, None)
-        for attr_name in _attr_names if _attr_names != "name"
-    }
+    ctype_dict: dict[str, Any] = {}
+    for attr_name in _attr_names:
+        attr_value = getattr(ctype, attr_name, None)
+        if not attr_value is None:
+            ctype_dict[attr_name] = attr_value
 
-    result: ffi.CType = getattr(ctype, "result", None)
-    result_json: str | None = None if result is None else json.dumps({
-        "cname": result.cname,
-        "kind":  result.kind,
-    }, indent=4)
+    if isinstance(ctype_dict.get("item"), ffi.CType):
+        ctype_dict["item"] = _ctype2dict(ctype_dict["item"])
 
-    elements: dict[int, str] | None = getattr(ctype, "elements", None)
-    elements_json: str | None = None if elements is None else json.dumps(
-        elements, indent=4, sort_keys=True
-    )
-    
-    relements: dict[int, str] | None = getattr(ctype, "relements", None)
-    if relements:
-        print(dict(sorted(relements.items(), key=lambda item: item[1])))
-    relements_json: str | None = None if relements is None else json.dumps(
-        dict(sorted(relements.items(), key=lambda item: item[1])),
-        indent=4,
-    )
-    
-    ctype_dict.update({
-        "ctype":     ctype,
-        "result":    result_json,
-        "elements":  elements_json,
-        "relements": relements_json,
-    })
+    if isinstance(ctype_dict.get("args"), (tuple, list)):
+        ctype_dict["args"] = [_ctype2dict(arg) for arg in ctype_dict["args"]]
+
+    if isinstance(ctype_dict.get("result"), ffi.CType):
+        ctype_dict["result"] = _ctype2dict(ctype_dict["result"])
 
     return ctype_dict
 
@@ -124,7 +108,8 @@ def _ctypename2dict(name: str) -> dict[str, Any]:
             "before creating CEnumSpec instances"
         )
 
-    return {"name": name} | _ctype2dict(cffi_target.ffi.typeof(name))
+    ctype: "ffi.CTypes" = cffi_target.ffi.typeof(name)
+    return {"name": name, "ctype": ctype} | _ctype2dict(ctype)
 
 
 @dataclass
