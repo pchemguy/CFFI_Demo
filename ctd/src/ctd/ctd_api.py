@@ -94,6 +94,10 @@ def main() -> int:
         print(dir(arg))
     print(dir(args[2].item))
 
+    print("\n\n-----------------------------------\n\n")
+
+    field = definitions[3]["ctype"].fields[1][1]
+
     return 0
 
 

@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+import _cffi_backend
+
 
 __all__ = (
     "CFFITarget",
@@ -50,10 +52,15 @@ class CTypeKinds(StrEnum):
     ENUM      = "enum"
 
 
-class CTypeGroups(StrEnum):
-    TYPEDEF = "typedef_names"
-    STRUCT  = "names_of_structs"
-    UNION   = "names_of_unions"
+class CFieldAttributes(StrEnum):
+    BITSHIFT = "bitshift"
+    BITSIZE  = "bitsize"
+    FLAGS    = "flags"
+    OFFSET   = "offset"
+    TYPE     = "type"
+
+
+_fattr_names: list[str] = [member.value for member in CFieldAttributes]
 
 
 class CTypeAttributes(StrEnum):
@@ -74,13 +81,23 @@ class CTypeAttributes(StrEnum):
 _attr_names: list[str] = [member.value for member in CTypeAttributes]
 
 
-def _ctype2dict(ctype: "ffi.CType") -> dict[str, Any]:
+def _ctype2dict(ctype: "ffi.CType", seen: set = None) -> dict[str, Any]:
     if cffi_target is None:
         raise RuntimeError(
             "CFFI target is not initialized; call CFFITarget.bind(ffi, lib) "
             "before creating CEnumSpec instances"
         )
 
+    if seen is None:
+        seen = set()
+
+    if ctype in seen:
+        return {
+            "cname": ctype.cname,
+            "kind":  ctype.kind,
+            "recursive": True,
+        }   
+    
     ffi = cffi_target.ffi
 
     ctype_dict: dict[str, Any] = {}
@@ -90,15 +107,43 @@ def _ctype2dict(ctype: "ffi.CType") -> dict[str, Any]:
             ctype_dict[attr_name] = attr_value
 
     if isinstance(ctype_dict.get("item"), ffi.CType):
-        ctype_dict["item"] = _ctype2dict(ctype_dict["item"])
+        ctype_dict["item"] = _ctype2dict(ctype_dict["item"], seen)
+
+    if isinstance(ctype_dict.get("fields"), (tuple, list)):
+        ctype_dict["fields"] = _process_field(ctype_dict["fields"], seen)
 
     if isinstance(ctype_dict.get("args"), (tuple, list)):
-        ctype_dict["args"] = [_ctype2dict(arg) for arg in ctype_dict["args"]]
+        ctype_dict["args"] = [_ctype2dict(arg, seen) for arg in ctype_dict["args"]]
 
     if isinstance(ctype_dict.get("result"), ffi.CType):
-        ctype_dict["result"] = _ctype2dict(ctype_dict["result"])
+        ctype_dict["result"] = _ctype2dict(ctype_dict["result"], seen)
 
     return ctype_dict
+
+
+def _process_field(fields: list | tuple, seen: set) -> list[dict[str, Any]]:
+    fields_list: list[dict[str, Any]] = []
+    for field in fields:
+        field_name: str = field[0]
+        field_value = field[1]
+        field_dict: dict[str, Any] = {"name": field_name}
+
+        if isinstance(field_value, _cffi_backend.CField):
+            for fattr_name in _fattr_names:
+                fattr_value = getattr(field_value, fattr_name, None)
+                if fattr_value is None:
+                    continue
+        
+                if isinstance(fattr_value, cffi_target.ffi.CType):
+                    field_dict[fattr_name] = _ctype2dict(fattr_value, seen)
+                else:
+                    field_dict[fattr_name] = fattr_value
+        else:
+            field_dict["field_object"] = field_value
+
+        fields_list.append(field_dict)
+    print(fields_list)
+    return fields_list
 
 
 def _ctypename2dict(name: str) -> dict[str, Any]:
