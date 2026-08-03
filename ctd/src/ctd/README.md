@@ -23,9 +23,14 @@ Briefly, `Anaconda_bootstrap.yml` and `Anaconda.yml` describe Conda environment 
 
 `conda_far.bat` is used to start an activated Python shell. This script will refuse to proceed, if Python is on the `PATH`. `conda_far.bat` is called directly (interactive mode) and may also used by used as part of other workflows, if called with the `/batch` flag. If [Far Manager](https://farmanager.com) is on the `PATH`, `conda_far.bat` should start it in the interactive mode within the activated shell.
 
-## CFFI Mode
+## CFFI Modes
 
-CFFI
+[CFFI](https://github.com/python-cffi/cffi) provides [several modes of operation](https://cffi.readthedocs.io/en/stable/overview.html). This project primarily focuses on API level modes, which involves a two stage process: first, a Python script is used to build a native Python wrapper package. Then this package mediates C calls to the target C library. Because the ultimate objective is the use of CFFI for unit testing C sources, meaning target library sources are readily available and target library compilation is a natural constituent of the targeted workflows, the two approaches described by CFFI documentation can be used:
+
+- Target library is built independently and then the wrapper package is dynamically linked against it.
+- Target sources are built by the same interface used for building the wrapper package resulting in static linking, where the wrapper package embeds the target library.
+
+Both of these approaches are explored by this project. Additionally, custom pipelines can also be defined where CFFI generates wrapper C sources, which can then be integrated into the target library build process. This approach is beyond the scope of the current project. 
 
 ## Project Organization
 
@@ -38,3 +43,5 @@ The demo program, `CTD`, consists of three modules:
 - `ctd.c`
 
 This standalone program incorporates a variety of simple C functions with varying signatures, including numeric scalars, strings, enumerations, structures, arrays, various pointers, global variables, and memory management.
+
+Note, that the header file is split into two parts `ctd.h` and `ctd_api.h`, where the former includes the latter (so the `ctd.c` only includes `ctd.h` directly). The reason and principle behind this split will be provided in later parts.
