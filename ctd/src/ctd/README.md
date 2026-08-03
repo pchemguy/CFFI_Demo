@@ -32,11 +32,9 @@ Briefly, `Anaconda_bootstrap.yml` and `Anaconda.yml` describe Conda environment 
 
 Both of these approaches are explored by this project. Additionally, custom pipelines can also be defined where CFFI generates wrapper C sources, which can then be integrated into the target library build process. This approach is beyond the scope of the current project. 
 
-## Project Organization
+## Demo C Library
 
-### Demo C Program
-
-The demo program, `CTD`, consists of three modules:
+The demo library, `CTD`, consists of three modules inside `ctd/src/ctd/`:
 
 - `ctd_api.h` 
 - `ctd.h`
@@ -45,3 +43,26 @@ The demo program, `CTD`, consists of three modules:
 This standalone program incorporates a variety of simple C functions with varying signatures, including numeric scalars, strings, enumerations, structures, arrays, various pointers, global variables, and memory management.
 
 Note, that the header file is split into two parts `ctd.h` and `ctd_api.h`, where the former includes the latter (so the `ctd.c` only includes `ctd.h` directly). The reason and principle behind this split will be provided in later parts.
+
+For dynamically linked mode, the library can be built using `ctd.bat` in the same directory. After execution, 
+`ctd.obj`, `ctd.lib`, `ctd.exp`, and `ctd.dll`  should be created in the same directory. Python wrapper module (`*.pyd`) will be linked against `ctd.lib` and will dispatch calls to `ctd.dll`.
+
+## CFFI Wrapper
+
+`ctd.py` and `ctd_embed.py` in `ctd/src/ctd/` are used to build CFFI Python wrapper package. These scripts are solely responsible for building the wrapper, nothing else. `ctd.py` creates a dynamic build and must be executed after `ctd.bat`, as it requires `ctd.lib` for linking.
+
+### Dynamically Linked
+
+After execution of `ctd.py`, it should create in the same directory:
+
+1. `_ctd_wrapper.c` (name is configurable in the script).
+2. `_ctd_wrapper.cp###-win_amd64.pyd` - linked wrapper package.
+3. `Release/` subdirectory with intermediate wrapper build artifacts (.obj, .lib, .exp)
+
+### Statically Linked with Embedded CTD Library
+
+Dynamical linking is probably a more natural/simpler approach. The alternative route is provided via the `ctd_embed.py` script. It does not use prebuilt `ctd.lib`, but uses the `ctd.c` source instead. The result of `ctd_embed.py` execution is similar, except that the `Release/` subdirectory will also contain the library object`ctd.obj` file.
+
+## Running the Demo
+
+After either statically linked or dynamically linked wrapper is built, the demo script `ctd_demo.py` can be executed, which should produce formatted console output with the results of calling `ctd` functions.
