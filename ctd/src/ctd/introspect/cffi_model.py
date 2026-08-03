@@ -207,4 +207,4 @@ class CFFICTypes:
         self.lib_names = lib_names
         self.lib_ctypes = [_libname2dict(lib_name) for lib_name in lib_names]
 
-        return ffi_names
+        return ffi_names, lib_names, self.ffi_ctypes, self.lib_ctypes

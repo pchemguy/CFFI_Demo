@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.sep.join(os.path.abspath(__file__).split(os.sep)[:-2]))
 
 from ctd._ctd_wrapper import ffi, lib
-from contract import cffi_model, enums, database
+from introspect import cffi_model, enums, database
 
 
 # From C "char *" to Python str
@@ -66,12 +66,16 @@ def main() -> int:
     #pretty_json = json.dumps(ctypes, indent=4)
     #print(pretty_json)
 
-    db: database.CFFIModelDB = database.CFFIModelDB()
+    db: database.CFFIModelDB = database.CFFIModelDB(database=".")
     cffi_model.CFFITarget.bind(ffi, lib)
     ctypes: cffi_model.CFFICTypes = cffi_model.CFFICTypes()
 
-    ffi_names: list[str] = ctypes.get_ctypes()
-    ffi_ctypes: list[dict[str, Any]] = ctypes.ffi_ctypes
+    ffi_names: list[str]
+    lib_names: list[str]
+    ffi_ctypes: list[dict[str, Any]]
+    lib_ctypes: list[dict[str, Any]] 
+     
+    ffi_names, lib_names, ffi_ctypes, lib_ctypes = ctypes.get_ctypes()
 
     ffi_ctypes_filtered: dict[str, Any] = [
         {prop: value for prop, value in desc.items() if prop != "ctype"}
@@ -80,8 +84,6 @@ def main() -> int:
 
     db.ctypes_insert(ffi_ctypes_filtered)
 
-    lib_names: list[str] = ctypes.lib_names
-    lib_ctypes: list[dict[str, Any]] = ctypes.lib_ctypes
     lib_ctypes_filtered: dict[str, Any] = [
         {prop: value for prop, value in desc.items() if prop != "ctype"}
         for desc in lib_ctypes
