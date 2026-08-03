@@ -25,7 +25,7 @@ Briefly, `Anaconda_bootstrap.yml` and `Anaconda.yml` describe Conda environment 
 
 ## CFFI Modes
 
-[CFFI](https://github.com/python-cffi/cffi) provides [several modes of operation](https://cffi.readthedocs.io/en/stable/overview.html). This project primarily focuses on API level modes, which involves a two stage process: first, a Python script is used to build a native Python wrapper package. Then this package mediates C calls to the target C library. Because the ultimate objective is the use of CFFI for unit testing C sources, meaning target library sources are readily available and target library compilation is a natural constituent of the targeted workflows, the two approaches described by CFFI documentation can be used:
+[CFFI](https://github.com/python-cffi/cffi) provides [several modes of operation](https://cffi.readthedocs.io/en/stable/overview.html). This project primarily focuses on API level modes, which involves a two stage process: first, a Python script is used to build a native [Python wrapper module](https://cffi.readthedocs.io/en/stable/cdef.html). Then this package mediates C calls to the target C library. Because the ultimate objective is the use of CFFI for unit testing C sources, meaning target library sources are readily available and target library compilation is a natural constituent of the targeted workflows, the two approaches described by CFFI documentation can be used:
 
 - Target library is built independently and then the wrapper package is dynamically linked against it.
 - Target sources are built by the same interface used for building the wrapper package resulting in static linking, where the wrapper package embeds the target library.
@@ -68,3 +68,15 @@ Dynamical linking is probably a more natural/simpler approach. The alternative r
 After either statically linked or dynamically linked wrapper is built, the demo script `ctd_demo.py` can be executed, which should produce formatted console output with the results of calling `ctd` functions.
 
 ## Wrapper Building
+
+The two build scripts are largely similar, only differing in a few build options. The core logic is in the `main` function, which uses three CFFI methods:
+
+1. `ffibuilder.cdef()`
+2. `ffibuilder.set_source()`
+3. `ffibuilder.compile()`
+
+where `ffibuilder` is an instance of `cffi.FFI`.
+
+The `.cdef()` method expects a single multiline string declaring the C types, functions and globals needed to use the target library. It must be in valid C syntax. The input to `.cdef()` is parsed by the [pycparser](https://github.com/eliben/pycparser) library and determines which custom C types (typedef) can be used via the `ffi` object (standard C types can be used directly) and which C functions and globals are exposed as `lib` object attributes.
+
+`.set_source()` configures C build toolchain (such as MSVC on Windows). The first positional argument defines the name of the generated wrapper source and package.

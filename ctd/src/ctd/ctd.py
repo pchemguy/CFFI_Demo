@@ -62,7 +62,6 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     ffibuilder.set_source(
         f"_{PROGRAM_NAME.lower()}_wrapper",
-    
         f"#include \"{PROGRAM_NAME.lower()}.h\"",
         #sources=[f"{PROGRAM_NAME.lower()}.c"],
         include_dirs=[".", "include",],
