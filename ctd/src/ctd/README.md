@@ -66,3 +66,5 @@ Dynamical linking is probably a more natural/simpler approach. The alternative r
 ## Running the Demo
 
 After either statically linked or dynamically linked wrapper is built, the demo script `ctd_demo.py` can be executed, which should produce formatted console output with the results of calling `ctd` functions.
+
+## Wrapper Building
