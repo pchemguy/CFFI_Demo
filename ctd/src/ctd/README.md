@@ -23,6 +23,10 @@ Briefly, `Anaconda_bootstrap.yml` and `Anaconda.yml` describe Conda environment 
 
 `conda_far.bat` is used to start an activated Python shell. This script will refuse to proceed, if Python is on the `PATH`. `conda_far.bat` is called directly (interactive mode) and may also used by used as part of other workflows, if called with the `/batch` flag. If [Far Manager](https://farmanager.com) is on the `PATH`, `conda_far.bat` should start it in the interactive mode within the activated shell.
 
+## CFFI Mode
+
+CFFI
+
 ## Project Organization
 
 ### Demo C Program
