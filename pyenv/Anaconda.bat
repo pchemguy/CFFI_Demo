@@ -998,7 +998,7 @@ if not "%EXIT_STATUS%"=="0" (
 )
 
 set "ENV_UV=%YAML:.yml=.pip.zxt%"
-call uv pip list > "%ENV_UV%"
+call pip list > "%ENV_UV%"
 set "EXIT_STATUS=%ERRORLEVEL%"
 if not "%EXIT_STATUS%"=="0" (
   echo %ERROR% Failed to export pip environment. Aborting...
