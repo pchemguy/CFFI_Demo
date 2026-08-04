@@ -7,6 +7,29 @@ from cffi import FFI
 
 
 PROGRAM_NAME = "CTD"
+DYNAMIC = True
+
+if DYNAMIC:
+    SOURCES=[]
+    LIBRARIES=[PROGRAM_NAME.lower()]
+else:
+    SOURCES=[f"{PROGRAM_NAME.lower()}.c"]
+    LIBRARIES=[]
+
+C_MACROS = [
+    (f"{PROGRAM_NAME.upper()}_C_API", None),
+    (f"{PROGRAM_NAME.upper()}_BUILD_{'EXE' if DYNAMIC else 'LIB'}", None),
+]
+
+EXTRA_COMPILE_ARGS = []
+if platform.python_compiler().startswith("MSC"):
+    EXTRA_COMPILE_ARGS = ["/TC", "/O2"]
+
+WRAPPER_NAME = f"_{PROGRAM_NAME.lower()}_wrapper"
+
+C_SNIPPET = f"""
+    #include "{PROGRAM_NAME.lower()}.h"
+"""
 
 
 def load_cdef_header(path: str | Path) -> str:
@@ -54,24 +77,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     declarations = load_cdef_header(f"{PROGRAM_NAME.lower()}_api.h")
     ffibuilder.cdef(declarations)
 
-    extra_compile_args = (
-        ["/TC", "/O2"]
-        if platform.python_compiler().startswith("MSC")
-        else []
-    )
-
     ffibuilder.set_source(
-        f"_{PROGRAM_NAME.lower()}_wrapper",
-        f"#include \"{PROGRAM_NAME.lower()}.h\"",
-        #sources=[f"{PROGRAM_NAME.lower()}.c"],
+        WRAPPER_NAME,
+        C_SNIPPET,
+        sources=SOURCES,
         include_dirs=[".", "include",],
-        libraries=[PROGRAM_NAME.lower()],
+        libraries=LIBRARIES,
         library_dirs=[".", "lib",],
-        define_macros=[
-            (f"{PROGRAM_NAME.upper()}_C_API", None),
-            (f"{PROGRAM_NAME.upper()}_BUILD_EXE", None),
-        ],
-        extra_compile_args=extra_compile_args,
+        define_macros=C_MACROS,
+        extra_compile_args=EXTRA_COMPILE_ARGS,
     )
 
     ffibuilder.compile(verbose=True)
