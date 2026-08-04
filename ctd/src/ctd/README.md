@@ -48,19 +48,19 @@ For dynamically linked mode, the library can be built using `build_ctd.py` in th
 
 ## CFFI Wrapper
 
-`ctd.py` and `ctd_embed.py` in `ctd/src/ctd/` are used to build CFFI Python wrapper package. These scripts are solely responsible for building the wrapper, nothing else. `ctd.py` creates a dynamic build and must be executed after `ctd.bat`, as it requires `ctd.lib` for linking.
+`build_ctd_wrapper.py` and `build_ctd_wrapper_embedded.py` in `ctd/src/ctd/` are used to build CFFI Python wrapper package. These scripts are solely responsible for building the wrapper, nothing else. `build_ctd_wrapper.py` creates a dynamic build and must be executed after `build_ctd.py`, as it requires `ctd.lib` import library (or the shared library on non-Windows systems) for linking.
 
 ### Dynamically Linked
 
-After execution of `ctd.py`, it should create in the same directory:
+After execution of `build_ctd_wrapper.py`, it should create in the same directory:
 
 1. `_ctd_wrapper.c` (name is configurable in the script).
-2. `_ctd_wrapper.cp###-win_amd64.pyd` - linked wrapper package.
+2. `_ctd_wrapper.cp###-win_amd64.pyd` (Windows) - linked wrapper package.
 3. `Release/` subdirectory with intermediate wrapper build artifacts (.obj, .lib, .exp)
 
 ### Statically Linked with Embedded CTD Library
 
-Dynamical linking is probably a more natural/simpler approach. The alternative route is provided via the `ctd_embed.py` script. It does not use prebuilt `ctd.lib`, but uses the `ctd.c` source instead. The result of `ctd_embed.py` execution is similar, except that the `Release/` subdirectory will also contain the library object`ctd.obj` file.
+Dynamical linking is probably a more natural/simpler approach. The alternative route is provided via the `build_ctd_wrapper_embedded.py` script. It does not use prebuilt `ctd.lib`, but uses the `ctd.c` source instead. The result of `build_ctd_wrapper_embedded.py` execution is similar, except that the `Release/` subdirectory will also contain the library object `ctd.obj` file.
 
 ## Running the Demo
 
@@ -76,6 +76,6 @@ The two build scripts are largely similar, only differing in a few build options
 
 where `ffibuilder` is an instance of `cffi.FFI`.
 
-The `.cdef()` method expects a single multiline string declaring the C types, functions and globals needed to use the target library. `.cdef()` input may contain valid `typedef`'s, and function and variable prototypes. It does not support any preprocessor directives, except for `#define <NAME> <INT>` (but any defined `<NAME>` cannot appear anywhere else in the input, so it is not so much a preprocessor directive, as a special syntax to define constant aliases which will be exposed via corresponding `lib.<NAME>` attribute, meaning the same namespace as function and global names). The input to `.cdef()` is parsed by the [pycparser](https://github.com/eliben/pycparser) library and determines which custom C types (typedef) can be used via the `ffi` object (standard C types can be used directly) and which C functions and globals are exposed as `lib` object attributes. 
+The `.cdef()` method expects a single multiline string declaring the C types, functions and globals needed to be available to the Python caller. `.cdef()` input may contain valid `typedef`'s, and function and variable prototypes. It does not support any preprocessor directives, except for `#define <NAME> <INT>` (but any defined `<NAME>` cannot appear anywhere else in the input, so it is not so much a preprocessor directive, as a special syntax to define constant aliases which will be exposed via corresponding `lib.<NAME>` attribute, meaning the same namespace as function and global names). The input to `.cdef()` is parsed by the [pycparser](https://github.com/eliben/pycparser) library and determines which custom C types (typedef) can be used via the `ffi` object (standard C types can be used directly) and which C functions and globals are exposed as `lib` object attributes. 
 
 `.set_source()` configures C build toolchain (such as MSVC on Windows). The first positional argument defines the name of the generated wrapper source and package. The second positional arguments defines a valid C snippet, which will be inserted into the wrapper source verbatim. When linking against the target library, this snippet at the minimum must include the target library's developer header, such as `#include "ctd.h"`. Because this snippet is inserted into the wrapper source, it may, in principle, contain any valid C, such as `typdef` declarations, implementation of functions and so on.

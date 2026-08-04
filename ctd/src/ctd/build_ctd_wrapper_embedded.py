@@ -7,6 +7,7 @@ from cffi import FFI
 
 
 PROGRAM_NAME = "CTD"
+CDEF_HEADER = f"{PROGRAM_NAME.lower()}_api.h"
 DYNAMIC = False
 
 if DYNAMIC:
@@ -74,7 +75,7 @@ def load_cdef_header(path: str | Path) -> str:
 
 def main(argv: Sequence[str] | None = None) -> int:
     ffibuilder = FFI()
-    declarations = load_cdef_header(f"{PROGRAM_NAME.lower()}_api.h")
+    declarations = load_cdef_header(CDEF_HEADER)
     ffibuilder.cdef(declarations)
 
     ffibuilder.set_source(
