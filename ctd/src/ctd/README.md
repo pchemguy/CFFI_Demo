@@ -83,3 +83,7 @@ The `.cdef()` method expects a single multiline string declaring the C types, fu
 ## Unit Testing Static Methods
 
 There various approaches to testing static method based on special test builds and adapters, which enable access to otherwise inaccessible from outside `static` C functions and variables. The present approach relies on replacing explicit `static` qualification with a preprocessor macro, such as `CTD_API` (defined in `ctd.h`), which enables straightforward build-time control over whether a function `static` in production builds will be accessible in test builds.
+
+## Dual Use (C/CDEF) Modules
+
+One of the desired features is the ability to generate wrapping code without any manual editing of the sources and, importantly without maintaining a separate module for CFFI CDEF input. While CDEF input accepts valid C code, it does not support C macro language. To satisfy both aspects, the original `ctd.h` module has been split in two, moving part of it to `ctd_api.h`, which contains declarations to be fed to CDEF for availability in Python. The only two aspects of this module not supported by CDEF are the standard header guard wrapper and `CTD_API` part of declarations. Both components can be automatically removed from the loaded module before providing it to CDEF. The same module is included in `ctd_api.h`, so for C compiler the picture is completely equivalent to alternative with  single `ctd.h` incorporating the contents of `ctd_api.h` inline.
