@@ -2,7 +2,7 @@
 
 This project aims to explore the CFFI library motivated by the desire to use CFFI for Python/Pytest unit testing of C code. The role of CFFI is to provide hopefully more convenient bridge between Pytest and called C code than what is available via the Python native `ctypes` or other leading alternatives.
 
-This project explicitly targets exploration of candidate workflows for unit testing of static/private C functions - functions not included into the public API or exported, but which may still present important internal contracts to be verified. An integral part of the project is exploration of reflection features provided by CFFI with respect to the target C code. The primary target operating system is Windows (CMD shell, not PowerShell), though the project aims to be straightforwardly adoptable to other environments as well.
+This project explicitly targets exploration of candidate workflows for unit testing of static/private C functions - functions not included into the public API or exported, but which may still present important internal contracts to be verified. An integral part of the project is exploration of reflection features provided by CFFI with respect to the target C code. 
 
 Development of both code and exploratory documentation heavily relies on AI-assisted workflows.
 
@@ -44,8 +44,7 @@ This standalone program incorporates a variety of simple C functions with varyin
 
 Note, that the header file is split into two parts `ctd.h` and `ctd_api.h`, where the former includes the latter (so the `ctd.c` only includes `ctd.h` directly). The reason and principle behind this split will be provided in later parts.
 
-For dynamically linked mode, the library can be built using `ctd.bat` in the same directory. After execution, 
-`ctd.obj`, `ctd.lib`, `ctd.exp`, and `ctd.dll`  should be created in the same directory. Python wrapper module (`*.pyd`) will be linked against `ctd.lib` and will dispatch calls to `ctd.dll`.
+For dynamically linked mode, the library can be built using `build_ctd.py` in the same directory. After execution on Widows, `ctd.lib` (import lib), `ctd.exp`, and `ctd.dll`  should be created in the same directory (static lib `ctd.lib` under `build\lib\`). Python wrapper module (`*.pyd`) will be linked against `ctd.lib` and will dispatch calls to `ctd.dll`.
 
 ## CFFI Wrapper
 

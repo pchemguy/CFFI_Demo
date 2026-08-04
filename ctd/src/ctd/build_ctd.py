@@ -91,7 +91,7 @@ def library_path(compiler: CCompiler, shared: bool) -> Path:
         filename = compiler.library_filename(
             LIB_NAME,
             lib_type="shared" if shared else "static",
-            output_dir=os. fspath(LIB_DIR),
+            output_dir=os.fspath(BIN_DIR),
         )
 
     return Path(filename)
