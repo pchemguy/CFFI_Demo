@@ -46,6 +46,13 @@ typedef struct ctd_record {
 } ctd_record;
 
 /*
+** A structure with no typedef.
+*/
+struct ctd_counter {
+    int value;
+};
+
+/*
 ** Tagged union.
 */
 typedef union ctd_number {

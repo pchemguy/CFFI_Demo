@@ -10,10 +10,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct ctd_counter {
-    int value;
-};
-
 CTD_API int ctd_global_counter = 0;
 CTD_API const int ctd_global_constant = 1729;
 CTD_API const char ctd_global_name[] = "ctd";
