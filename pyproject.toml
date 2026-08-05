@@ -10,6 +10,7 @@ description = "CFFI library usage demonstration via a dummy CTD module."
 
 dependencies = [
     "cffi",
+    "setuptools",
 ]
 
 
