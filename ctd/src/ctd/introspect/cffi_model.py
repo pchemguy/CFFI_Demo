@@ -170,7 +170,7 @@ def _libname2dict(name: str) -> dict[str, Any]:
     except TypeError:
         return {
             "name": name,
-            "category": "instance",
+            "category": "lib_global",
             "ctype": None,
             "cname": f"NA - {str(type(getattr(cffi_target.lib, name)))}",
         }
