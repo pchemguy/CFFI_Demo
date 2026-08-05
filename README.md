@@ -34,7 +34,7 @@ Both of these approaches are explored by this project. Additionally, custom pipe
 
 ## Demo C Library
 
-The demo library, `CTD`, consists of three modules inside `ctd/src/ctd/`:
+The demo library, `CTD`, consists of three modules inside `/ctd/src/ctd/`:
 
 - `ctd_api.h` 
 - `ctd.h`
@@ -44,7 +44,7 @@ This standalone program incorporates a variety of simple C functions with varyin
 
 Note, that the header file is split into two parts `ctd.h` and `ctd_api.h`, where the former includes the latter (so the `ctd.c` only includes `ctd.h` directly). The reason and principle behind this split will be provided in later parts.
 
-For dynamically linked mode, the library can be built using `build_ctd.py` in the same directory. After execution on Widows, `ctd.lib` (import lib), `ctd.exp`, and `ctd.dll`  should be created in the same directory (static lib `ctd.lib` under `build\lib\`). Python wrapper module (`*.pyd`) will be linked against `ctd.lib` and will dispatch calls to `ctd.dll`.
+For dynamically linked mode, the library can be built using `build_ctd.py` in the same directory. After execution on Widows, `ctd.lib` (import lib), `ctd.exp`, and `ctd.dll`  should be created in the same directory (static lib `ctd.lib` under `build/lib/`). Python wrapper module (`*.pyd`) will be linked against `ctd.lib` and will dispatch calls to `ctd.dll`.
 
 ## CFFI Wrapper
 
@@ -98,7 +98,7 @@ It is important to understand quickly what CFFI actually "understands" upon proc
 from _ctd_wrapper import ffi, lib
 ```
 
-The `ffi` object provides `typedef` information and C variable handling, while `lib` exposes declared in CDEF functions and globals as its attributes. The `ctd_introspect.py` module (together with `introspect/cffi_model.py` and `introspect/database.py`)  provides a convenient means to inspect this information.
+The `ffi` object provides `typedef` information and C variable handling, while `lib` exposes declared in CDEF functions and globals as its attributes. The `ctd_introspect.py` module (together with `/ctd/src/ctd/introspect/cffi_model.py` and `/ctd/src/ctd/introspect/database.py`)  provides a convenient means to inspect this information.
 
 `ffi`'s typedefs and `lib`'s globals are primarily exposed as objects of CFFI's `ffi.CType` class (note, this class is not available directly from the `cffi` package, but must be accessed as an attribute on the `ffi`, an instance of `cffi.FFI`). There is also a secondary class available as `_cffi_backend.CField`.
 
