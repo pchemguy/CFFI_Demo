@@ -1,7 +1,4 @@
----
-url: https://chatgpt.com/c/6a732fbb-6b04-83eb-99f4-3941570b5b0b
----
-# AGENTS.md
+ # AGENTS.md
 
 ## Purpose
 
@@ -16,40 +13,51 @@ The project also investigates CFFI reflection and diagnostics for declarations s
 
 This is an experimental engineering repository. Preserve its ability to compare alternative workflows rather than prematurely collapsing them into one implementation.
 
-## Primary Platform
+## Execution Environments
 
-The primary and currently documented platform is:
+The project aims to develop portable CFFI workflows and may be modified or tested by either a local agent or a cloud agent. Agents must first identify which execution environment they are running in and apply only the corresponding operational rules.
 
-- Windows
-- `cmd.exe`
-- Conda-managed Python
-- MSVC toolchain
+### Local Windows Agent
 
-Do not assume Bash, GCC, Clang, Make, CMake, a system-wide Python installation, or POSIX filesystem semantics unless the task explicitly adds such support.
+The local development environment is:
 
-Use Windows-compatible paths and subprocess behavior. Do not introduce shell commands that require PowerShell or a Unix compatibility layer unless specifically requested.
+- Windows;
+- `cmd.exe`;
+- Conda-managed Python;
+- an already activated MSVC toolchain.
 
-## Environment Rules
+The environment is fully configured before the agent is started. A local agent must not bootstrap, activate, repair, replace, or otherwise modify the development environment.
 
-The repository deliberately avoids relying on globally installed development tools.
+The `/pyenv` directory contains the user's environment-management implementation. It is out of scope for agent execution and modification.
 
-The `/pyenv` directory contains scripts for bootstrapping and activating the local Python and MSVC environment:
+For a local Windows agent:
 
-- `Anaconda_bootstrap.yml`
-- `Anaconda.yml`
-- `Anaconda.bat`
-- `msbuild.bat`
-- `conda_far.bat`
-
-Respect these constraints:
-
+- Do not execute, edit, generate, delete, or rename any file under `/pyenv`.
 - Do not install packages globally.
 - Do not modify the user's root environment.
-- Do not assume `python`, `pip`, or MSVC are available before environment activation.
-- Do not run `Anaconda.bat` when an existing project environment is already present.
-- Treat `msbuild.bat` as a supporting activation script, not normally as the direct user entry point.
-- Prefer running project commands from the activated shell created by `conda_far.bat`.
-- Before changing environment scripts, inspect their current behavior and preserve their collision-avoidance checks.
+- Do not run environment-activation or bootstrap scripts.
+- Use the Python interpreter and MSVC environment already present in the agent process.
+- Use Windows-compatible paths and subprocess behavior.
+- Do not require PowerShell, Bash, MSYS2, WSL, or another Unix compatibility layer unless the task explicitly concerns one of them.
+- Do not replace the portable Python build scripts with `.bat` scripts or direct MSVC command scripts.
+
+The standalone CTD build is intentionally driven by Python and uses the Python distutils/setuptools compiler abstraction rather than invoking an MSVC-specific batch build. Preserve this portable build approach.
+
+### Cloud Linux Agent
+
+A cloud agent may run in a dedicated Linux sandbox. The sandbox exists solely for the project, so the local Windows restrictions on global installation and environment management do not apply.
+
+For a cloud Linux agent:
+
+- Use `pyproject.toml` as the authoritative entry point for creating or installing the Python project environment.
+- Install project dependencies in the sandbox as needed.
+- Use the C compiler and linker selected or discovered by setuptools in that environment.
+- Use normal Linux paths and shell facilities.
+- Do not assume MSVC, Windows import libraries, DLLs, `.pyd` files, or Windows command scripts are available.
+- Do not alter project code merely to reproduce Windows-specific artifact names or directory layouts.
+- Preserve portability: avoid unnecessary compiler-specific options and isolate unavoidable platform-specific behavior.
+
+The cloud sandbox does not need to emulate the user's `/pyenv` workflow.
 
 ## Repository Areas
 
@@ -138,7 +146,7 @@ Use the repository's established C style.
 The opening brace of a C function definition must be on the same line as the declarator:
 
 ```c
-int ctd_example(int value){
+int ctd_example(int value) {
     return value;
 }
 ```
@@ -155,7 +163,7 @@ int ctd_example(int value)
 Additional rules:
 
 - Prefer explicit, portable C types where the example requires fixed width.
-- Keep warning-clean MSVC builds.
+- Keep builds warning-clean under the active supported compiler; do not introduce compiler-specific warnings on either MSVC or the available Linux toolchain.
 - Avoid unrelated formatting changes.
 - Do not introduce C++ constructs into C sources.
 - Preserve const-correctness and pointer ownership semantics.
@@ -172,7 +180,9 @@ The dynamic sequence is:
 2. Build the CFFI wrapper with `build_ctd_wrapper.py`.
 3. Run `ctd_demo.py` or applicable tests.
 
-On Windows, the CTD build is expected to produce artifacts such as:
+The exact artifacts are platform-specific.
+
+On Windows with MSVC, the CTD build is expected to produce artifacts such as:
 
 ```text
 ctd.dll
@@ -180,9 +190,9 @@ ctd.lib
 ctd.exp
 ```
 
-The `.lib` used by the wrapper is the MSVC import library for `ctd.dll`, not a copy of the DLL implementation.
+In this case, the `.lib` used by the wrapper is the MSVC import library for `ctd.dll`, not a static copy of the DLL implementation. The generated Python extension is a `*.pyd` file that links against the import library and dispatches calls to `ctd.dll` at runtime.
 
-The generated Python extension (`*.pyd`) links against the import library and dispatches calls to `ctd.dll` at runtime.
+On Linux, expect the corresponding platform-native shared-library and Python-extension artifacts, normally a shared object for CTD and a Python extension with a platform-tagged `.so` filename. Do not require Windows-only import-library or export-file artifacts.
 
 ### Embedded Wrapper
 
@@ -228,15 +238,19 @@ Typical generated artifacts include:
 
 ```text
 _ctd_wrapper.c
-_ctd_wrapper.cp###-win_amd64.pyd
-Release/
 build/
-*.obj
-*.lib
-*.exp
-*.dll
-*.pyd
+Release/                         # commonly produced by Windows/MSVC builds
+*.obj                            # Windows object files
+*.lib                            # Windows static or import libraries
+*.exp                            # Windows export files
+*.dll                            # Windows shared libraries
+*.pyd                            # Windows Python extensions
+*.o                              # Unix-like object files
+*.a                              # Unix-like static libraries
+*.so                             # Linux shared libraries and Python extensions
 ```
+
+A filename such as `_ctd_wrapper.cp###-win_amd64.pyd` is a Windows-specific example only. Linux and other platforms use their own Python extension suffixes and ABI tags.
 
 Rules:
 
@@ -278,7 +292,7 @@ Do not redesign this model casually. Preserve deterministic serialization and st
 ## Python Style
 
 - Use modern Python type annotations consistent with the repository's supported Python version.
-- Prefer `pathlib.Path` for filesystem paths, while preserving Windows behavior.
+- Prefer `pathlib.Path` for filesystem paths and preserve correct behavior on both Windows and Linux.
 - Use `subprocess.run(..., check=True)` or explicit return-code handling for build commands.
 - Keep build failures visible; do not suppress compiler or linker diagnostics.
 - Separate pure transformation logic from filesystem and subprocess effects.
@@ -360,13 +374,22 @@ ctd_api.h
     -> demo/tests/introspection
 ```
 
-For a build change, verify paths separately for MSVC compilation and linking. On Windows, distinguish:
+For a build change, verify compilation and linking separately under the active platform toolchain.
+
+On Windows, distinguish:
 
 - object files;
 - static libraries;
 - import libraries;
 - DLLs;
-- generated Python extension modules.
+- generated `.pyd` extension modules.
+
+On Linux, distinguish:
+
+- object files;
+- static archives;
+- shared libraries;
+- generated Python `.so` extension modules.
 
 ### 3. Implement
 
@@ -374,7 +397,7 @@ Use targeted edits. Preserve existing naming and architecture. Add comments only
 
 ### 4. Validate
 
-Execute relevant commands in the already activated project environment. Capture the first meaningful failure and fix its cause rather than layering workarounds.
+Execute relevant commands in the environment appropriate to the agent: use the already activated environment without alteration on local Windows, or create/install the project environment from `pyproject.toml` in a cloud Linux sandbox. Capture the first meaningful failure and fix its cause rather than layering workarounds.
 
 For linkage changes, inspect both the build command and produced artifacts. Successful compilation alone is insufficient; import and function invocation must also work.
 
