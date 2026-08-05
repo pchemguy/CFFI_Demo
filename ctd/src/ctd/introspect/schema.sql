@@ -11,7 +11,7 @@ CREATE TABLE kinds (
 CREATE TABLE ctypes (
     "id"        INTEGER PRIMARY KEY,
     "name"      TEXT COLLATE NOCASE NOT NULL UNIQUE,
-    "category"  TEXT COLLATE NOCASE NOT NULL CHECK("category" IN ('typedef', 'instance')),
+    "category"  TEXT COLLATE NOCASE NOT NULL CHECK("category" IN ('ffi_typedef', 'lib_global')),
     "cname"     TEXT COLLATE NOCASE NOT NULL,
     "kind"      TEXT COLLATE NOCASE,
     "item"      TEXT COLLATE NOCASE,
