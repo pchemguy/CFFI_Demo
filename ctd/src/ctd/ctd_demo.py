@@ -1,15 +1,6 @@
 """
 Demonstrate the complete C API exposed by ``_ctd_wrapper``.
-
-Build first:
-
-    python ctd_embed.py
-
-Then run:
-
-    python demo.py
 """
-
 from __future__ import annotations
 
 import os

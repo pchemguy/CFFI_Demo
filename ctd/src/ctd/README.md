@@ -88,5 +88,16 @@ There various approaches to testing static method based on special test builds a
 
 One of the desired features is the ability to generate wrapping code without any manual editing of the sources and, importantly without maintaining a separate module for CFFI CDEF input. While CDEF input accepts valid C code, it does not support C macro language. To satisfy both aspects, the original `ctd.h` module has been split in two, moving part of it to `ctd_api.h`, which contains declarations to be fed to CDEF for availability in Python. The only two aspects of this module not supported by CDEF are the standard header guard wrapper and `CTD_API` part of declarations. Both components can be automatically removed from the loaded module before providing it to CDEF. The same module is included in `ctd_api.h`, so for C compiler the picture is completely equivalent to alternative with  single `ctd.h` incorporating the contents of `ctd_api.h` inline.
 
-## Basic Introspection
+## Basic Diagnostics
 
+It is important to understand quickly what CFFI actually "understands" upon processing the inputs. Basically, a module using the built Python wrapper package imports two CFFI objects from the wrapper, which provide the CFFI functionality:
+
+```python
+from _ctd_wrapper import ffi, lib
+```
+
+The `ffi` object provides `typedef` information and C variable handling, while `lib` exposes declared in CDEF functions and globals as its attributes. The `ctd_introspect.py` module (together with `introspect/cffi_model.py` and `introspect/database.py`)  provides a convenient means to inspect this information.
+
+`ffi`'s typedefs and `lib`'s globals are primarily exposed as objects of CFFI's `ffi.CType` class (note, this class is not available directly from the `cffi` package, but must be accessed as an attribute on the `ffi`, an instance of `cffi.FFI`). There is also a secondary class available as `_cffi_backend.CField`.
+
+While `ffi.CType` class has a "recursive" nature (it includes attributes that may in turn include `ffi.CType` instances, as well as `_cffi_backend.CField`), it is still convenient to represent the two lists of top-level objects as a table of `ffi.CType` attributes, representing for now nested objects as structured JSON fields, rather than adding them to the same table. There are a number of ways this inspection objective can be achieved. As I often inspect SQLite databases via the convenient GUI dba tools, I decided to parse the `ffi.CType` data into an ad hoc SQLite database (defined by schema `introspect/schema.sql`). The `database.py` module is responsible for handling the necessary database functionality, while `cffi_model.py` introspects the `ffi` and `lib` objects.
