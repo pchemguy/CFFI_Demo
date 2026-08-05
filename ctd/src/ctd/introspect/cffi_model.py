@@ -155,7 +155,7 @@ def _ffiname2dict(name: str) -> dict[str, Any]:
         )
 
     ctype: "ffi.CTypes" = cffi_target.ffi.typeof(name)
-    return {"name": name, "category": "typedef", "ctype": ctype} | _ctype2dict(ctype)
+    return {"name": name, "category": "ffi_typedef", "ctype": ctype} | _ctype2dict(ctype)
 
 
 def _libname2dict(name: str) -> dict[str, Any]:
@@ -175,7 +175,7 @@ def _libname2dict(name: str) -> dict[str, Any]:
             "cname": f"NA - {str(type(getattr(cffi_target.lib, name)))}",
         }
 
-    return {"name": name, "category": "instance", "ctype": ctype} | _ctype2dict(ctype)
+    return {"name": name, "category": "lib_global", "ctype": ctype} | _ctype2dict(ctype)
 
 
 @dataclass
