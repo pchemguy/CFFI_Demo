@@ -66,7 +66,7 @@ Dynamical linking is probably a more natural/simpler approach. The alternative r
 
 After either statically linked or dynamically linked wrapper is built, the demo script `ctd_demo.py` can be executed, which should produce formatted console output with the results of calling `ctd` functions.
 
-## Wrapper Building
+## Key Wrapper Building Methods
 
 The two build scripts are largely similar, only differing in a few build options. The core logic is in the `main` function, which uses three CFFI methods:
 
@@ -90,6 +90,8 @@ One of the desired features is the ability to generate wrapping code without any
 
 ## Basic Diagnostics
 
+CFFI wrapper provides two object, `ffi` and `lib`, for interacting with the C code. `ffi` provides access to custom type definitions (typedef's) included in CDEF input and C variable handling, while `lib` provides access to C functions and global variables. All accepted C statements, including typedef's, function prototypes, and variable declarations are modeled by CFFI as `ffi.CType` class.
+
 It is important to understand quickly what CFFI actually "understands" upon processing the inputs. Basically, a module using the built Python wrapper package imports two CFFI objects from the wrapper, which provide the CFFI functionality:
 
 ```python
@@ -100,4 +102,10 @@ The `ffi` object provides `typedef` information and C variable handling, while `
 
 `ffi`'s typedefs and `lib`'s globals are primarily exposed as objects of CFFI's `ffi.CType` class (note, this class is not available directly from the `cffi` package, but must be accessed as an attribute on the `ffi`, an instance of `cffi.FFI`). There is also a secondary class available as `_cffi_backend.CField`.
 
-While `ffi.CType` class has a "recursive" nature (it includes attributes that may in turn include `ffi.CType` instances, as well as `_cffi_backend.CField`), it is still convenient to represent the two lists of top-level objects as a table of `ffi.CType` attributes, representing for now nested objects as structured JSON fields, rather than adding them to the same table. There are a number of ways this inspection objective can be achieved. As I often inspect SQLite databases via the convenient GUI dba tools, I decided to parse the `ffi.CType` data into an ad hoc SQLite database (defined by schema `introspect/schema.sql`). The `database.py` module is responsible for handling the necessary database functionality, while `cffi_model.py` introspects the `ffi` and `lib` objects.
+While `ffi.CType` class has a "recursive" nature (it includes attributes that may in turn include `ffi.CType` instances, as well as `_cffi_backend.CField`), it is still convenient to represent the two lists of top-level objects as a table of `ffi.CType` attributes, representing for now nested objects as structured JSON fields, rather than adding them to the same table. There are a number of ways this inspection objective can be achieved. As I often inspect SQLite databases via the convenient GUI dba tools, I decided to parse the `ffi.CType` data into an ad hoc SQLite database (defined by schema `introspect/schema.sql`). 
+
+The core `ffi.CType` data provided by both `ffi` for types and `lib` for function/variable definitions is placed into the `ctypes` table with two additional columns:
+- "name" column contains the C name returned by `ffi.list_types()` or represented by a `lib` attribute, as this identifier is not included in `CType`;
+- "category" column identifies the source, `ffi` or `lib` (both modeled by the same `CType` and presently I do not see a good reason to split the two sets into separate tables). 
+
+The `database.py` module is responsible for handling the necessary database functionality, while `cffi_model.py` retrieves information from the `ffi` and `lib` objects and parses it into dictionaries.
