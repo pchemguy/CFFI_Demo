@@ -3,11 +3,7 @@ https://chatgpt.com/c/6a717551-16c0-83ed-9f08-18ac9077ee33
 """
 from __future__ import annotations
 
-import argparse
 import os
-import shutil
-import sys
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
@@ -55,7 +51,7 @@ def compile_flags(compiler_type: str, shared: bool) -> list[str]:
             flags.append("-fPIC")
     else:
         raise RuntimeError(f"Unsupported compiler type: {compiler_type!r}")
-    
+
     return flags
 
 
@@ -91,19 +87,15 @@ def library_path(compiler: CCompiler, shared: bool) -> Path:
         filename = compiler.library_filename(
             LIB_NAME,
             lib_type="shared" if shared else "static",
-            output_dir=os.fspath(BIN_DIR),
+            output_dir=os.fspath(BIN_DIR if shared else LIB_DIR),
         )
 
     return Path(filename)
 
 
 def compile_objects(compiler: CCompiler, shared: bool) -> list[str]:
-    relative_sources = [
-        os.fspath(source.relative_to(PREFIX))
-        for source in SOURCES
-    ]
     return compiler.compile(
-        sources=relative_sources,
+        sources=[os.fspath(source) for source in SOURCES],
         output_dir=os.fspath(SHARED_OBJECT_DIR if shared else STATIC_OBJECT_DIR),
         include_dirs=[os.fspath(INCLUDE_DIR)],
         macros=macros(shared=shared),
@@ -152,7 +144,7 @@ def print_artifact(label: str, path: Path | None) -> None:
 def main() -> int:
     for source in SOURCES:
         if not source.is_file():
-            raise FileNotFoundError(f"C source file not found: {SOURCE}")
+            raise FileNotFoundError(f"C source file not found: {source}")
 
     if not INCLUDE_DIR.is_dir():
         raise FileNotFoundError(f"Include directory not found: {INCLUDE_DIR}")
