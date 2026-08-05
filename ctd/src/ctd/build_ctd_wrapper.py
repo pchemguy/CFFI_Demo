@@ -1,21 +1,23 @@
-from typing import Sequence
-from pathlib import Path
-import re
 import platform
+import re
+import sys
+from pathlib import Path
 
 from cffi import FFI
 
 
 PROGRAM_NAME = "CTD"
-CDEF_HEADER = f"{PROGRAM_NAME.lower()}_api.h"
+PREFIX = Path(__file__).resolve().parent
+
+CDEF_HEADER = PREFIX / f"{PROGRAM_NAME.lower()}_api.h"
 DYNAMIC = True
 
 if DYNAMIC:
-    SOURCES=[]
-    LIBRARIES=[PROGRAM_NAME.lower()]
+    SOURCES = []
+    LIBRARIES = [PROGRAM_NAME.lower()]
 else:
-    SOURCES=[f"{PROGRAM_NAME.lower()}.c"]
-    LIBRARIES=[]
+    SOURCES = [PREFIX / f"{PROGRAM_NAME.lower()}.c"]
+    LIBRARIES = []
 
 C_MACROS = [
     (f"{PROGRAM_NAME.upper()}_C_API", None),
@@ -23,8 +25,13 @@ C_MACROS = [
 ]
 
 EXTRA_COMPILE_ARGS = []
+EXTRA_LINK_ARGS = []
 if platform.python_compiler().startswith("MSC"):
     EXTRA_COMPILE_ARGS = ["/TC", "/O2"]
+elif sys.platform == "darwin":
+    EXTRA_LINK_ARGS = ["-Wl,-rpath,@loader_path"]
+elif sys.platform != "win32":
+    EXTRA_LINK_ARGS = ["-Wl,-rpath,$ORIGIN"]
 
 WRAPPER_NAME = f"_{PROGRAM_NAME.lower()}_wrapper"
 
@@ -73,7 +80,7 @@ def load_cdef_header(path: str | Path) -> str:
     return declarations
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main() -> int:
     ffibuilder = FFI()
     declarations = load_cdef_header(CDEF_HEADER)
     ffibuilder.cdef(declarations)
@@ -81,15 +88,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     ffibuilder.set_source(
         WRAPPER_NAME,
         C_SNIPPET,
-        sources=SOURCES,
-        include_dirs=[".", "include",],
+        sources=[str(source) for source in SOURCES],
+        include_dirs=[str(PREFIX), str(PREFIX / "include")],
         libraries=LIBRARIES,
-        library_dirs=[".", "lib",],
+        library_dirs=[str(PREFIX), str(PREFIX / "lib")],
         define_macros=C_MACROS,
         extra_compile_args=EXTRA_COMPILE_ARGS,
+        extra_link_args=EXTRA_LINK_ARGS,
     )
 
-    ffibuilder.compile(verbose=True)
+    ffibuilder.compile(tmpdir=str(PREFIX), verbose=True)
+    return 0
 
 
 if __name__ == "__main__":
