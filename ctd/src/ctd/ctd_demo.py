@@ -1,15 +1,17 @@
 """
 Demonstrate the complete C API exposed by ``_ctd_wrapper``.
 """
+
 from __future__ import annotations
 
-import os
 import sys
+from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.sep.join(os.path.abspath(__file__).split(os.sep)[:-2]))
+MODULE_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(MODULE_DIR))
+sys.path.insert(0, str(MODULE_DIR.parent))
 
-from _ctd_wrapper import ffi, lib
+from _ctd_wrapper import ffi, lib  # noqa: E402
 
 
 def heading(title: str) -> None:
@@ -35,7 +37,7 @@ def point_tuple(point: ffi.CData) -> tuple[float, float]:
     return point.x, point.y
 
 
-def main() -> int:
+def demo_globals_and_status_values() -> None:
     # Recommended canonical pattern catalogue - 1. Globals and status values.
     heading("Version, enum constants, and exported globals")
 
@@ -103,6 +105,11 @@ def main() -> int:
     ):
         print(f"{status}: {status_name(status)}")
 
+    # Pytest equivalent: assert lib.ctd_global_counter == 41
+    assert lib.ctd_global_counter == 41
+
+
+def demo_scalar_and_value_operations() -> None:
     # Recommended canonical pattern catalogue - 2. Scalar and value operations.
     heading("Scalar operations")
 
@@ -118,7 +125,11 @@ def main() -> int:
 
     status = lib.ctd_divide(1.0, 0.0, quotient)
     show_status("ctd_divide(1.0, 0.0)", status)
+    # Pytest equivalent: assert status == lib.CTD_ERROR_DIVIDE_BY_ZERO
+    assert status == lib.CTD_ERROR_DIVIDE_BY_ZERO
 
+
+def demo_scalar_pointer_operations() -> None:
     # Recommended canonical pattern catalogue - 3. Scalar pointer operations.
     heading("Scalar pointer operations")
 
@@ -137,7 +148,11 @@ def main() -> int:
     status = lib.ctd_swap_i32(left, right)
     show_status("ctd_swap_i32()", status)
     print(f"values: left={left[0]}, right={right[0]}")
+    # Pytest equivalent: assert (left[0], right[0]) == (20, 10)
+    assert (left[0], right[0]) == (20, 10)
 
+
+def demo_typed_arrays() -> None:
     # Recommended canonical pattern catalogue - 4. Typed arrays.
     heading("Typed arrays and statistics")
 
@@ -162,8 +177,10 @@ def main() -> int:
     print(
         "stats:",
         {
+            # A pointer-to-struct supports both spellings.  The indexed form is
+            # useful when emphasizing that this is caller-allocated storage.
             "count": stats.count,
-            "minimum": stats.minimum,
+            "minimum": stats[0].minimum,
             "maximum": stats.maximum,
             "sum": stats.sum,
             "mean": stats.mean,
@@ -206,7 +223,11 @@ def main() -> int:
     borrowed_count = ffi.new("size_t *")
     borrowed = lib.ctd_borrow_sequence_i32(borrowed_count)
     print(f"borrowed sequence: {list(ffi.unpack(borrowed, borrowed_count[0]))}")
+    # Pytest equivalent: assert ffi.unpack(borrowed, borrowed_count[0]) == [...]
+    assert list(ffi.unpack(sequence, required_count[0])) == [100, 101, 102, 103, 104]
 
+
+def demo_byte_buffers() -> None:
     # Recommended canonical pattern catalogue - 5. Byte buffers.
     heading("Byte buffers")
 
@@ -243,7 +264,11 @@ def main() -> int:
     status = lib.ctd_checksum_bytes(source, len(source_bytes), checksum)
     show_status("ctd_checksum_bytes()", status)
     print(f"checksum: {checksum[0]}")
+    # Pytest equivalent: assert bytes(ffi.buffer(destination, 5)) == expected
+    assert bytes(ffi.buffer(destination, required_count[0])) == b"\xff\xfe\x80\x7f\x00"
 
+
+def demo_strings() -> None:
     # Recommended canonical pattern catalogue - 6. Strings.
     heading("Strings")
 
@@ -252,10 +277,10 @@ def main() -> int:
     print(f"ctd_utf8_byte_size(NULL): {lib.ctd_utf8_byte_size(ffi.NULL)}")
 
     for selector in (0, 1, 2, 99):
-        print(
-            f"ctd_select_static_string({selector}): "
-            f"{c_string(lib.ctd_select_static_string(selector))!r}"
-        )
+        selected = lib.ctd_select_static_string(selector)
+        # Copy a borrowed string immediately; CTD retains ownership.
+        copied = None if selected == ffi.NULL else ffi.string(selected).decode("utf-8")
+        print(f"ctd_select_static_string({selector}): {copied!r}")
 
     greeting = lib.ctd_alloc_greeting(b"CFFI")
     if greeting == ffi.NULL:
@@ -290,7 +315,11 @@ def main() -> int:
     )
     show_status("ctd_copy_string() copy", status)
     print(f"copied string: {c_string(copied_string)!r}")
+    # Pytest equivalent: assert ffi.string(copied_string) == expected_bytes
+    assert ffi.string(copied_string) == b"copied through a caller-provided buffer"
 
+
+def demo_structures_and_tagged_unions() -> None:
     # Recommended canonical pattern catalogue - 7. Structures and tagged unions.
     heading("Structures and fixed-size structure arrays")
 
@@ -301,7 +330,9 @@ def main() -> int:
     print(f"first point: {point_tuple(first)}")
     print(f"second point: {point_tuple(second)}")
     print(f"ctd_point_add(): {point_tuple(combined)}")
-    print(f"ctd_point_dot(): {lib.ctd_point_dot(ffi.addressof(first), ffi.addressof(second))}")
+    print(
+        f"ctd_point_dot(): {lib.ctd_point_dot(ffi.addressof(first), ffi.addressof(second))}"
+    )
 
     point = ffi.new("ctd_point *", {"x": 10.0, "y": 20.0})
     status = lib.ctd_point_translate(point, 1.5, -2.5)
@@ -350,16 +381,18 @@ def main() -> int:
     descriptor = ffi.new("ctd_descriptor *")
     status = lib.ctd_describe_i32(described_values, 6, descriptor)
     show_status("ctd_describe_i32()", status)
-    print(
-        f"descriptor: {c_string(descriptor.message)!r}, "
-        f"values={list(descriptor.values[0:descriptor.count])}"
-    )
+    descriptor_message = ffi.string(descriptor.message).decode("utf-8")
+    descriptor_count = descriptor.count
+    descriptor_values = list(ffi.unpack(descriptor.values, descriptor_count))
+    print(f"descriptor: {descriptor_message!r}, values={descriptor_values}")
 
     static_descriptor = lib.ctd_static_descriptor()
-    print(
-        f"static descriptor: {c_string(static_descriptor.message)!r}, "
-        f"values={list(static_descriptor.values[0:static_descriptor.count])}"
-    )
+    static_message = ffi.string(static_descriptor.message).decode("utf-8")
+    static_count = static_descriptor.count
+    static_values = list(ffi.unpack(static_descriptor.values, static_count))
+    print(f"static descriptor: {static_message!r}, values={static_values}")
+    # Pytest equivalent: assert descriptor_values == described_values
+    assert descriptor_values == [4, 8, 15, 16, 23, 42]
 
     heading("Advanced callbacks and function pointers")
 
@@ -396,6 +429,8 @@ def main() -> int:
         else:
             print(f"ctd_get_binary_operation({selector})(6, 7): {operation(6, 7)}")
 
+
+def demo_opaque_handles_and_release() -> None:
     # Recommended canonical pattern catalogue - 8. Opaque handles and release.
     heading("Opaque counter handle")
 
@@ -423,8 +458,12 @@ def main() -> int:
     try:
         show_status("ctd_accumulator_add(20)", lib.ctd_accumulator_add(accumulator, 20))
         show_status("ctd_accumulator_add(22)", lib.ctd_accumulator_add(accumulator, 22))
-        show_status("ctd_accumulator_get()", lib.ctd_accumulator_get(accumulator, accumulated))
+        show_status(
+            "ctd_accumulator_get()", lib.ctd_accumulator_get(accumulator, accumulated)
+        )
         print(f"accumulated value: {accumulated[0]}")
+        # Pytest equivalent: assert accumulated[0] == 42
+        assert accumulated[0] == 42
     finally:
         lib.ctd_accumulator_destroy(accumulator)
 
@@ -443,6 +482,16 @@ def main() -> int:
         },
     )
 
+
+def main() -> int:
+    demo_globals_and_status_values()
+    demo_scalar_and_value_operations()
+    demo_scalar_pointer_operations()
+    demo_typed_arrays()
+    demo_byte_buffers()
+    demo_strings()
+    demo_structures_and_tagged_unions()
+    demo_opaque_handles_and_release()
     return 0
 
 
