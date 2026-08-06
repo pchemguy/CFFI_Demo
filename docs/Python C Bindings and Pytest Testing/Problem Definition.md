@@ -2,13 +2,7 @@
 url: https://chatgpt.com/c/6a73901c-5730-83ed-a63c-4df0ff2d5d98
 ---
 
-## 📗 Objective and Scope
-
-> [!NOTE] Prompt
-> 
-> I am thinking about reshuffling my CFFI demo code, which is right now just one big main def. BUT, I realize, what I actually need is to have a better definition of objective and scope. My ultimate objective is a robust means to test C code via Pytest. So the reason I have been thinking in terms of creating a higher-level auto wrapper is actually because I want test creation by a coding agent and I reasoned that pure Python interface might be simpler for an agent. But I also have to be practical and find a balance of my time invested in any contraptions, which proves to be sustantial. So I may need to redefine the scope. I actually do not need to have agent to create tests for arbitrarily complex/obfuscated/twisted C code. So I guess I should better define a practical suite of patterns that would reasonably cover a large portion of non-system C use case (I do not care about hardware programming for now, or some special system things development; the focus is more on code where certain common algos and data handling is implemented for the sake of speed, no for the ability to entertain arbitrary control of the processes/environment). If I define such a suite of patterns, I can reshuffle the demo so that I would have basically a nice suite of one/few shot examples. I will accept the need to ask the agent to use CFFI directly, but I will be able supply the C source, function docstrings, if necessary, plus few shot examples.
-> 
-> I am trying to define the patterns. I guess, supplying and receiving as return standard numeric scalars; supplying and returning strings (argument memory managed by cffi; for a return value, the string is immediately copied to memory managed by cffi, if it is not already implemented by cffi); supplying pointer to a structure/array with memory allocated by cffi; returning structure pointer via return; and then, I guess, out and inout args).
+## Objective and Scope
 
 Your revised direction is sound: **do not build a general wrapper generator**. Define a constrained C interface profile that a coding agent can test directly through CFFI, supported by a compact catalogue of canonical examples.
 
