@@ -378,6 +378,9 @@ CTD_API ctd_status ctd_counter_add(ctd_counter *counter, int amount, int *result
 
 /* A genuinely opaque lifecycle object with a type-specific release operation.
 ** Its representation and owned state are private to ctd.c. */
+/* RETURN: OUT OPAQUE; NULL on failure; retained as handle state; caller-owned
+** after return; no size unit; release with ctd_accumulator_destroy().  Do not
+** pass this handle to ctd_free() because it owns nested allocated state. */
 CTD_API ctd_accumulator *ctd_accumulator_create(size_t capacity);
 CTD_API ctd_status ctd_accumulator_add(ctd_accumulator *accumulator, int32_t value);
 CTD_API ctd_status ctd_accumulator_get(

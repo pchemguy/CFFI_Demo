@@ -290,6 +290,12 @@ CTD_API ctd_status ctd_make_sequence_i32(
         return CTD_ERROR_NULL;
     }
 
+    if (count > 0 &&
+        (count - 1 > (size_t)INT32_MAX ||
+         start > INT32_MAX - (int32_t)(count - 1))) {
+        return CTD_ERROR_RANGE;
+    }
+
     *required_count = count;
 
     if (count == 0) {
@@ -302,11 +308,6 @@ CTD_API ctd_status ctd_make_sequence_i32(
 
     if (capacity < count) {
         return CTD_ERROR_CAPACITY;
-    }
-
-    if (count - 1 > (size_t)INT32_MAX ||
-        start > INT32_MAX - (int32_t)(count - 1)) {
-        return CTD_ERROR_RANGE;
     }
 
     for (index = 0; index < count; ++index) {
