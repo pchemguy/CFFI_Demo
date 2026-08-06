@@ -25,6 +25,7 @@ test = [
 lint = [
     "ruff",
     "mypy",
+    "types-cffi",
 ]
 
 tools = [
@@ -39,6 +40,7 @@ dev = [
     "coverage",
     "ruff",
     "mypy",
+    "types-cffi",
     "hatch",
     "uv",
 ]

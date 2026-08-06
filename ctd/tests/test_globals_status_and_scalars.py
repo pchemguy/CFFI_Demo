@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import pytest
 
+from tests.cffi_types import CffiValue
 
-def test_enum_values(lib) -> None:
+
+def test_enum_values(lib: CffiValue) -> None:
     expected_values = {
         "CTD_OK": 0,
         "CTD_ERROR_NULL": 1,
@@ -33,7 +35,9 @@ def test_enum_values(lib) -> None:
         pytest.param(None, b"CTD_ERROR_UNKNOWN", id="unknown"),
     ],
 )
-def test_status_names(ffi, lib, constant: str | None, expected: bytes) -> None:
+def test_status_names(
+    ffi: CffiValue, lib: CffiValue, constant: str | None, expected: bytes
+) -> None:
     status = 999 if constant is None else getattr(lib, constant)
     assert ffi.string(lib.ctd_status_name(status)) == expected
 
@@ -56,7 +60,7 @@ def test_status_names(ffi, lib, constant: str | None, expected: bytes) -> None:
     ],
 )
 def test_exact_scalar_operations(
-    lib, operation: str, arguments: tuple[int, ...], expected: int
+    lib: CffiValue, operation: str, arguments: tuple[int, ...], expected: int
 ) -> None:
     assert getattr(lib, operation)(*arguments) == expected
 
@@ -66,7 +70,7 @@ def test_exact_scalar_operations(
     [(3.0, 4.0, 25.0), (-3.0, 4.0, 25.0), (0.0, 0.0, 0.0)],
     ids=["positive", "negative", "zero"],
 )
-def test_hypot_squared(lib, x: float, y: float, expected: float) -> None:
+def test_hypot_squared(lib: CffiValue, x: float, y: float, expected: float) -> None:
     assert lib.ctd_hypot_squared(x, y) == pytest.approx(expected)
 
 
@@ -78,8 +82,8 @@ def test_hypot_squared(lib, x: float, y: float, expected: float) -> None:
     ],
 )
 def test_divide_success_changes_output(
-    ffi,
-    lib,
+    ffi: CffiValue,
+    lib: CffiValue,
     numerator: float,
     denominator: float,
     expected_status: str,
@@ -109,8 +113,8 @@ def test_divide_success_changes_output(
     ],
 )
 def test_divide_failure_preserves_output(
-    ffi,
-    lib,
+    ffi: CffiValue,
+    lib: CffiValue,
     numerator: float,
     denominator: float,
     expected_status: str,
@@ -132,7 +136,9 @@ def test_divide_failure_preserves_output(
         pytest.param("library-mutation", id="library-mutation"),
     ],
 )
-def test_mutable_global_counter_is_isolated(lib, reset_globals, mode: str) -> None:
+def test_mutable_global_counter_is_isolated(
+    lib: CffiValue, reset_globals: CffiValue, mode: str
+) -> None:
     assert lib.ctd_global_counter == 0
     if mode == "direct-assignment":
         lib.ctd_global_counter = 41
@@ -142,7 +148,7 @@ def test_mutable_global_counter_is_isolated(lib, reset_globals, mode: str) -> No
         assert lib.ctd_global_counter == 1
 
 
-def test_constants(ffi, lib) -> None:
+def test_constants(ffi: CffiValue, lib: CffiValue) -> None:
     assert lib.ctd_max_supported_point_count == 1024
     assert lib.ctd_numeric_epsilon == pytest.approx(1.0e-12)
     assert ffi.string(lib.ctd_library_name) == b"CTD"
@@ -150,7 +156,7 @@ def test_constants(ffi, lib) -> None:
     assert lib.ctd_origin_point.y == pytest.approx(0.0)
 
 
-def test_globals_reset_restores_all_defaults(lib) -> None:
+def test_globals_reset_restores_all_defaults(lib: CffiValue) -> None:
     lib.ctd_global_counter = 41
     lib.ctd_global_last_status = lib.CTD_ERROR_RANGE
     lib.ctd_global_scale = 2.5

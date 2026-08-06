@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import pytest
 
+from tests.cffi_types import CffiValue
+
 
 @pytest.mark.parametrize(
     ("pointer", "count", "expected_status", "expected", "output_changes"),
@@ -13,8 +15,8 @@ import pytest
     ],
 )
 def test_sum_nullable_pointer_contract(
-    ffi,
-    lib,
+    ffi: CffiValue,
+    lib: CffiValue,
     pointer: str,
     count: int,
     expected_status: str,
@@ -37,14 +39,16 @@ def test_sum_nullable_pointer_contract(
     ],
 )
 def test_scale_arrays(
-    ffi, lib, values: list[int], factor: int, expected: list[int]
+    ffi: CffiValue, lib: CffiValue, values: list[int], factor: int, expected: list[int]
 ) -> None:
     array = ffi.NULL if not values else ffi.new("int32_t[]", values)
     assert lib.ctd_scale_i32(array, len(values), factor) == lib.CTD_OK
     assert ([] if array == ffi.NULL else list(array)) == expected
 
 
-def test_scale_overflow_does_not_partially_modify_array(ffi, lib) -> None:
+def test_scale_overflow_does_not_partially_modify_array(
+    ffi: CffiValue, lib: CffiValue
+) -> None:
     values = ffi.new("int32_t[]", [3, 2**30])
     assert lib.ctd_scale_i32(values, 2, 2) == lib.CTD_ERROR_RANGE
     assert list(values) == [3, 2**30]
@@ -60,8 +64,8 @@ def test_scale_overflow_does_not_partially_modify_array(ffi, lib) -> None:
     ],
 )
 def test_sequence_capacity_contract(
-    ffi,
-    lib,
+    ffi: CffiValue,
+    lib: CffiValue,
     capacity: int,
     size_query: bool,
     expected_status: str,
@@ -87,7 +91,9 @@ def test_sequence_capacity_contract(
         pytest.param(b"\x00\xff\x01", 256, id="contains-ff"),
     ],
 )
-def test_byte_checksum(ffi, lib, payload: bytes, expected: int) -> None:
+def test_byte_checksum(
+    ffi: CffiValue, lib: CffiValue, payload: bytes, expected: int
+) -> None:
     data = ffi.NULL if not payload else ffi.new("uint8_t[]", payload)
     result = ffi.new("uint32_t *", 0xDEADBEEF)
     assert lib.ctd_checksum_bytes(data, len(payload), result) == lib.CTD_OK
@@ -104,8 +110,8 @@ def test_byte_checksum(ffi, lib, payload: bytes, expected: int) -> None:
     ],
 )
 def test_copy_bytes_capacity_contract(
-    ffi,
-    lib,
+    ffi: CffiValue,
+    lib: CffiValue,
     capacity: int,
     size_query: bool,
     expected_status: str,
