@@ -79,8 +79,9 @@ C function with a superficially similar type is safe to use the same way.
 7. **Structures and tagged values.** `ctd_point_make()` and `ctd_point_add()`
    return structures by value; `ctd_point_dot()` borrows two input structures
    for the call; and `ctd_point_translate()` mutates one.  The family also
-   includes `ctd_record_initialize()`, the `ctd_value_from_*()` tagged-union
-   constructors and `ctd_value_as_f64()`, borrowed `ctd_default_config()` plus
+   includes `ctd_record_initialize()`, the `ctd_value_from_i64()` and
+   `ctd_value_from_f64()` tagged-union constructors and `ctd_value_as_f64()`,
+   borrowed `ctd_default_config()` plus
    `ctd_range_apply()`, and descriptors from `ctd_describe_i32()` and
    `ctd_static_descriptor()`.  A dynamic descriptor's `values` aliases its
    input, so the owning input cdata must remain alive; a static descriptor and
@@ -264,8 +265,11 @@ two build designs.
 
 ## Practical Pytest patterns
 
-These short excerpts are synchronized with the suite.  See the full modules
-under [`ctd/tests/`](ctd/tests/) for boundary and failure cases.
+These excerpts are copied from the suite rather than maintained as separate
+examples.  Pytest supplies the `ffi` and `lib` fixtures defined in
+[`conftest.py`](ctd/tests/conftest.py), and each test module imports `pytest`
+itself.  Follow the links beside each excerpt for the complete boundary and
+failure cases.
 
 ### Status lookup and readable parameter IDs
 
@@ -277,7 +281,15 @@ From
     ("constant", "expected"),
     [
         pytest.param("CTD_OK", b"CTD_OK", id="ok"),
+        pytest.param("CTD_ERROR_NULL", b"CTD_ERROR_NULL", id="null"),
+        pytest.param("CTD_ERROR_RANGE", b"CTD_ERROR_RANGE", id="range"),
         pytest.param("CTD_ERROR_CAPACITY", b"CTD_ERROR_CAPACITY", id="capacity"),
+        pytest.param("CTD_ERROR_ALLOCATION", b"CTD_ERROR_ALLOCATION", id="allocation"),
+        pytest.param(
+            "CTD_ERROR_DIVIDE_BY_ZERO",
+            b"CTD_ERROR_DIVIDE_BY_ZERO",
+            id="divide-by-zero",
+        ),
         pytest.param(None, b"CTD_ERROR_UNKNOWN", id="unknown"),
     ],
 )
@@ -288,9 +300,10 @@ def test_status_names(ffi, lib, constant: str | None, expected: bytes) -> None:
 
 ### Capacity query, exact capacity, and preserved sentinel
 
-The complete parametrization in
-[`test_pointers_arrays_and_bytes.py`](ctd/tests/test_pointers_arrays_and_bytes.py)
-also includes `extra-capacity`:
+From
+[`test_pointers_arrays_and_bytes.py`](ctd/tests/test_pointers_arrays_and_bytes.py).
+Here `capacity`, `count`, and `required[0]` are counts of `int32_t` elements,
+not byte counts:
 
 ```python
 @pytest.mark.parametrize(
@@ -299,10 +312,16 @@ also includes `extra-capacity`:
         pytest.param(0, True, "CTD_ERROR_CAPACITY", False, id="size-query"),
         pytest.param(3, False, "CTD_ERROR_CAPACITY", False, id="one-short"),
         pytest.param(4, False, "CTD_OK", True, id="exact-capacity"),
+        pytest.param(5, False, "CTD_OK", True, id="extra-capacity"),
     ],
 )
 def test_sequence_capacity_contract(
-    ffi, lib, capacity, size_query, expected_status, storage_written
+    ffi,
+    lib,
+    capacity: int,
+    size_query: bool,
+    expected_status: str,
+    storage_written: bool,
 ) -> None:
     sentinel = [777] * 5
     buffer = ffi.NULL if size_query else ffi.new("int32_t[]", sentinel)
@@ -313,11 +332,14 @@ def test_sequence_capacity_contract(
     if not size_query:
         expected = [10, 11, 12, 13, 777] if storage_written else sentinel
         assert list(buffer) == expected
+        assert (list(buffer) != sentinel) is storage_written
 ```
 
-The floating-point test uses `pytest.approx()`; the handle failure test seeds an
-output sentinel and proves that it is preserved.  Both excerpts are unchanged
-from their test modules:
+The floating-point test in
+[`test_globals_status_and_scalars.py`](ctd/tests/test_globals_status_and_scalars.py)
+uses `pytest.approx()`.  The handle failure test in
+[`test_strings_structures_and_ownership.py`](ctd/tests/test_strings_structures_and_ownership.py)
+seeds an `int` output sentinel and proves that it is preserved:
 
 ```python
 @pytest.mark.parametrize(
@@ -341,38 +363,55 @@ From
 [`test_strings_structures_and_ownership.py`](ctd/tests/test_strings_structures_and_ownership.py):
 
 ```python
+def unpack_i32(ffi, pointer, count: int) -> list[int]:
+    return list(ffi.unpack(pointer, count))
+
+
 def test_borrowed_sequence_is_copied_to_python_storage(ffi, lib) -> None:
     count = ffi.new("size_t *")
     borrowed = lib.ctd_borrow_sequence_i32(count)
+
     assert borrowed != ffi.NULL
-    copied = list(ffi.unpack(borrowed, count[0]))
+    copied = unpack_i32(ffi, borrowed, count[0])
     assert copied == [2, 3, 5, 7, 11]
+```
+
+The copied Python list has no CTD lifetime requirement, and the borrowed
+pointer is deliberately not freed.  In contrast, this owned greeting example
+from the same test module releases the pointer even when an assertion or Python
+exception interrupts the test:
+
+```python
+def copy_nullable_string(ffi, pointer) -> bytes | None:
+    return None if pointer == ffi.NULL else ffi.string(pointer)
 
 
 def test_owned_greeting_uses_explicit_try_finally(ffi, lib) -> None:
     greeting = lib.ctd_alloc_greeting(b"Pytest")
     assert greeting != ffi.NULL
     try:
-        assert ffi.string(greeting) == b"Hello, Pytest!"
+        assert copy_nullable_string(ffi, greeting) == b"Hello, Pytest!"
     finally:
         lib.ctd_free(greeting)
 ```
 
-An opaque handle shared with a test uses the `yield` fixture in
-[`conftest.py`](ctd/tests/conftest.py):
+An opaque accumulator requires its type-specific destructor rather than
+`ctd_free()`.  The complete lifecycle is tested in
+[`test_strings_structures_and_ownership.py`](ctd/tests/test_strings_structures_and_ownership.py):
 
 ```python
-@pytest.fixture
-def counter_handle(ffi, lib) -> Iterator[object]:
-    handle = lib.ctd_counter_create(10)
-    assert handle != ffi.NULL
-    yield handle
-    lib.ctd_free(handle)
+def test_accumulator_opaque_handle_lifecycle(ffi, lib) -> None:
+    accumulator = lib.ctd_accumulator_create(2)
+    assert accumulator != ffi.NULL
+    try:
+        assert lib.ctd_accumulator_add(accumulator, 20) == lib.CTD_OK
+        assert lib.ctd_accumulator_add(accumulator, 22) == lib.CTD_OK
+        result = ffi.new("int64_t *", -999)
+        assert lib.ctd_accumulator_get(accumulator, result) == lib.CTD_OK
+        assert result[0] == 42
+    finally:
+        lib.ctd_accumulator_destroy(accumulator)
 ```
-
-This fixture is correct specifically because `ctd_counter_create()` documents
-`ctd_free()` as its release operation.  The accumulator tests instead call
-`ctd_accumulator_destroy()` in `finally`.
 
 ## Advanced declaration and reflection examples
 
