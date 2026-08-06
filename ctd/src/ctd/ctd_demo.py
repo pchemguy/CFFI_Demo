@@ -342,6 +342,41 @@ def main() -> int:
         f"values={list(descriptor.values[0:descriptor.count])}"
     )
 
+    heading("Advanced callbacks and function pointers")
+
+    user_data = ffi.new("int *", 10)
+
+    @ffi.callback("int(int, int, void *)")
+    def weighted_add(
+        callback_left: int,
+        callback_right: int,
+        opaque: ffi.CData,
+    ) -> int:
+        weight = ffi.cast("int *", opaque)[0]
+        return callback_left + callback_right * weight
+
+    callback_result = ffi.new("int *")
+    status = lib.ctd_apply_callback(
+        2,
+        3,
+        weighted_add,
+        user_data,
+        callback_result,
+    )
+    show_status("ctd_apply_callback()", status)
+    print(f"callback result: {callback_result[0]}")
+
+    for selector in (
+        lib.CTD_BINARY_OPERATION_ADD,
+        lib.CTD_BINARY_OPERATION_MULTIPLY,
+        99,
+    ):
+        operation = lib.ctd_get_binary_operation(selector)
+        if operation == ffi.NULL:
+            print(f"ctd_get_binary_operation({selector}): NULL")
+        else:
+            print(f"ctd_get_binary_operation({selector})(6, 7): {operation(6, 7)}")
+
     # Recommended canonical pattern catalogue - 8. Opaque handles and release.
     heading("Opaque counter handle")
 

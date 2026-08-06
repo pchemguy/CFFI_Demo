@@ -585,6 +585,43 @@ CTD_API ctd_status ctd_describe_i32(
     return CTD_OK;
 }
 
+/* Advanced callback and returned-function-pointer examples. */
+static int binary_operation_add(int left, int right) {
+    return left + right;
+}
+
+static int binary_operation_multiply(int left, int right) {
+    return left * right;
+}
+
+CTD_API ctd_status ctd_apply_callback(
+    int left,
+    int right,
+    ctd_binary_callback callback,
+    void *user_data,
+    int *result
+) {
+    if (callback == NULL || result == NULL) {
+        return CTD_ERROR_NULL;
+    }
+
+    *result = callback(left, right, user_data);
+    return CTD_OK;
+}
+
+CTD_API ctd_binary_operation ctd_get_binary_operation(
+    ctd_binary_operation_kind operation_kind
+) {
+    switch (operation_kind) {
+        case CTD_BINARY_OPERATION_ADD:
+            return binary_operation_add;
+        case CTD_BINARY_OPERATION_MULTIPLY:
+            return binary_operation_multiply;
+        default:
+            return NULL;
+    }
+}
+
 /* Recommended canonical pattern catalogue - 8. Opaque handles and release. */
 CTD_API ctd_counter *ctd_counter_create(int initial_value) {
     ctd_counter *counter;

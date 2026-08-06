@@ -51,6 +51,14 @@ typedef union ctd_number {
 } ctd_number;
 
 typedef int (*ctd_binary_callback)(int left, int right, void *user_data);
+/* Returned values are borrowed library-owned function pointers. */
+typedef int (*ctd_binary_operation)(int left, int right);
+
+typedef enum ctd_binary_operation_kind {
+    CTD_BINARY_OPERATION_ADD = 0,
+    CTD_BINARY_OPERATION_MULTIPLY = 1
+} ctd_binary_operation_kind;
+
 typedef int (*ctd_value_predicate)(const ctd_number *value, void *user_data);
 typedef void (*ctd_message_callback)(const char *message, size_t length);
 
@@ -128,7 +136,7 @@ CTD_DATA_API double ctd_global_scale;
 
 CTD_DATA_API const size_t ctd_max_supported_point_count;
 CTD_DATA_API const double ctd_numeric_epsilon;
-CTD_DATA_API const char ctd_library_name[];
+CTD_DATA_API const char ctd_library_name[4];
 CTD_DATA_API const ctd_point ctd_origin_point;
 
 /* RETURN: OUT STRING; non-NULL; borrowed, library-owned, static lifetime. */
@@ -282,14 +290,34 @@ CTD_API ctd_status ctd_range_apply(
     double value,
     double *result
 );
-/* values: IN ARRAY; NULL only when count is zero; borrowed by result and not
-** retained after the call; caller-owned; count unit: int32_t elements.
+/* values: IN ARRAY; NULL only when count is zero; borrowed by result;
+** caller-owned; count unit: int32_t elements.  Keep the owning cdata alive for
+** every access through result->values.
 ** result: OUT STRUCT; non-NULL; its message is borrowed static storage and its
-** values member aliases the input for the duration of the caller's use. */
+** values member aliases the input while that input remains alive. */
 CTD_API ctd_status ctd_describe_i32(
     const int32_t *values,
     size_t count,
     ctd_descriptor *result
+);
+
+/* Advanced callback and returned-function-pointer examples. */
+/* callback: IN OPAQUE callable pointer; non-NULL; not retained; caller-owned;
+** no size unit. user_data: IN OPAQUE; nullable; not retained; caller-owned; no
+** size unit. result: OUT SCALAR; non-NULL; not retained; caller-owned; no size
+** unit. Keep both callback and user_data cdata alive for the call. */
+CTD_API ctd_status ctd_apply_callback(
+    int left,
+    int right,
+    ctd_binary_callback callback,
+    void *user_data,
+    int *result
+);
+
+/* RETURN: OUT OPAQUE function pointer; nullable; borrowed library-owned static
+** code; no size unit; must not be freed. */
+CTD_API ctd_binary_operation ctd_get_binary_operation(
+    ctd_binary_operation_kind operation_kind
 );
 
 /* Recommended canonical pattern catalogue - 8. Opaque handles and release. */
@@ -306,8 +334,9 @@ CTD_API ctd_status ctd_counter_get(const ctd_counter *counter, int *result);
 CTD_API ctd_status ctd_counter_add(ctd_counter *counter, int amount, int *result);
 
 /* pointer: IN OPAQUE allocation; nullable; consumed/released, not retained;
-** CTD-owned before call; no size unit.  Only pass pointers returned by a CTD
-** allocation function documented to use ctd_free(). */
+** caller-owned before call and originally allocated by CTD; no size unit. Only
+** pass pointers documented for release with ctd_free(). The pointer is invalid
+** after this call. */
 CTD_API void ctd_free(void *pointer);
 
 #endif /* CTD_API_H */
