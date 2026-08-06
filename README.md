@@ -1,111 +1,195 @@
-# CTD Demo for CFFI
+# Testing C with Pytest and CFFI
 
-This project aims to explore the CFFI library motivated by the desire to use CFFI for Python/Pytest unit testing of C code. The role of CFFI is to provide hopefully more convenient bridge between Pytest and called C code than what is available via the Python native `ctypes` or other leading alternatives.
+This repository explores using [CFFI](https://cffi.readthedocs.io/) API mode as
+a bridge from Pytest to a small C library named **CTD**. CTD deliberately
+contains scalars, strings, structures, arrays, pointers, global state, allocated
+memory, and functions that normally have internal linkage. The examples are
+small so that the C/Python boundary, rather than application logic, remains the
+focus.
 
-This project explicitly targets exploration of candidate workflows for unit testing of static/private C functions - functions not included into the public API or exported, but which may still present important internal contracts to be verified. An integral part of the project is exploration of reflection features provided by CFFI with respect to the target C code. 
+The repository preserves two alternative wrapper workflows:
 
-Development of both code and exploratory documentation heavily relies on AI-assisted workflows.
+1. build CTD as a standalone shared library and dynamically link the generated
+   CFFI extension to it; or
+2. compile `ctd.c` as part of the generated CFFI extension, embedding the CTD
+   implementation in that extension.
 
-## Prerequisites:
+Both workflows produce an extension with the same import name,
+`_ctd_wrapper`. The ordinary tests intentionally exercise that common Python
+interface and do not know which workflow produced the extension.
 
-Run from a shell with activated environments:
+## Repository layout
 
-- Conda / Python
-- MSVC
+The principal implementation is in `ctd/src/ctd/`:
 
-### Python Environment
+- `ctd_api.h` contains declarations exposed through CFFI.
+- `ctd.h` is the C developer header and includes `ctd_api.h`.
+- `ctd.c` implements CTD.
+- `cdef_header.py` mechanically converts the dual-use API header to CDEF text.
+- `build_ctd.py` builds standalone static and shared CTD libraries.
+- `build_ctd_wrapper.py` builds the dynamically linked CFFI wrapper only.
+- `build_ctd_wrapper_embedded.py` builds the wrapper with `ctd.c` embedded.
+- `ctd_demo.py` demonstrates calls through the built wrapper.
+- `ctd_introspect.py` and `introspect/` inspect CFFI's declaration model.
 
-The `/pyenv` project directory includes a scripted tools for bootstrapping the target Python environment on Windows. This project specifically follows a philosophy of never having any system-wide Python installation or any other development tools, libraries, frameworks, and so on (see also this [note](https://github.com/pchemguy/Field-Notes/blob/main/03-python-env-windows/README.md)). The goal is rather than fighting environment issues where more than one library or tool may end up on the shell `PATH`, is to adhere to practices that greatly reduce the risks of such collisions in the first place. Each environment, including all necessary tools or libraries, can be activate via a shell script, which starts a shell and sets environment variables, none of which contaminate the root environment. 
+The Pytest suite is in `ctd/tests/`. Project dependencies and test discovery
+configuration are in `pyproject.toml`.
 
-Briefly, `Anaconda_bootstrap.yml` and `Anaconda.yml` describe Conda environment to be created. `Anaconda.bat` is responsible for driving the setup process, relying on Windows `curl.exe` and `tar.exe`, downloading any other tools or sources automatically. This script attempts to detect presence of already created Python environment and will refuse to run, if one is detected. When executed, the script will create `Anaconda` directory next to the script for the new environment.
+## Environment
 
-`msbuild.bat` is a supporting script used to detect and activate MSVC environment within the Python environment (see also this [note](https://github.com/pchemguy/Field-Notes/blob/main/05-python-pip-msvc/README.md)). Normally, it is not called directly.
+### Linux sandbox
 
-`conda_far.bat` is used to start an activated Python shell. This script will refuse to proceed, if Python is on the `PATH`. `conda_far.bat` is called directly (interactive mode) and may also used by used as part of other workflows, if called with the `/batch` flag. If [Far Manager](https://farmanager.com) is on the `PATH`, `conda_far.bat` should start it in the interactive mode within the activated shell.
+Use `pyproject.toml` as the installation entry point. For example, in an
+isolated environment:
 
-## CFFI Modes
+```console
+python -m pip install -e ".[test]"
+```
 
-[CFFI](https://github.com/python-cffi/cffi) provides [several modes of operation](https://cffi.readthedocs.io/en/stable/overview.html). This project primarily focuses on API level modes, which involves a two stage process: first, a Python script is used to build a native [Python wrapper module](https://cffi.readthedocs.io/en/stable/cdef.html). Then this package mediates C calls to the target C library. Because the ultimate objective is the use of CFFI for unit testing C sources, meaning target library sources are readily available and target library compilation is a natural constituent of the targeted workflows, the two approaches described by CFFI documentation can be used:
+The build scripts use the compiler selected by setuptools. Linux outputs
+normally include `libctd.so` and an ABI-tagged `_ctd_wrapper*.so` extension.
 
-- Target library is built independently and then the wrapper package is dynamically linked against it.
-- Target sources are built by the same interface used for building the wrapper package resulting in static linking, where the wrapper package embeds the target library.
+### Local Windows development
 
-Both of these approaches are explored by this project. Additionally, custom pipelines can also be defined where CFFI generates wrapper C sources, which can then be integrated into the target library build process. This approach is beyond the scope of the current project. 
+Start with the repository's Conda/Python and MSVC environment already
+activated. The environment-management scripts under `pyenv/` are for the
+user's existing Windows workflow; normal CTD builds and tests do not bootstrap
+or modify that environment.
 
-## Demo C Library
+On MSVC, the standalone shared build produces `ctd.dll` and its `ctd.lib`
+**import library** (plus associated intermediate output). The import library is
+not a static copy of CTD: the dynamically linked `_ctd_wrapper*.pyd` dispatches
+to `ctd.dll` at runtime. Artifact names differ on Linux and other platforms.
 
-The demo library, `CTD`, consists of three modules inside `/ctd/src/ctd/`:
+## CFFI API-mode design
 
-- `ctd_api.h` 
-- `ctd.h`
-- `ctd.c`
+Both wrapper builders use the same three CFFI operations:
 
-This standalone program incorporates a variety of simple C functions with varying signatures, including numeric scalars, strings, enumerations, structures, arrays, various pointers, global variables, and memory management.
+1. `FFI.cdef()` receives declarations that become available through `ffi` and
+   `lib`.
+2. `FFI.set_source()` configures the generated extension's C source, headers,
+   macros, compiler inputs, and linker inputs.
+3. `FFI.compile()` generates and builds the native Python extension.
 
-Note, that the header file is split into two parts `ctd.h` and `ctd_api.h`, where the former includes the latter (so the `ctd.c` only includes `ctd.h` directly). The reason and principle behind this split will be provided in later parts.
+The source snippet passed to `set_source()` includes the real developer header:
 
-For dynamically linked mode, the library can be built using `build_ctd.py` in the same directory. After execution on Widows, `ctd.lib` (import lib), `ctd.exp`, and `ctd.dll`  should be created in the same directory (static lib `ctd.lib` under `build/lib/`). Python wrapper module (`*.pyd`) will be linked against `ctd.lib` and will dispatch calls to `ctd.dll`.
+```c
+#include "ctd.h"
+```
 
-## CFFI Wrapper
+This is separate from CDEF parsing. `cdef()` parses only the declaration text
+given to it; it does not preprocess `ctd.c` or follow C `#include` directives.
 
-`build_ctd_wrapper.py` and `build_ctd_wrapper_embedded.py` in `ctd/src/ctd/` are used to build CFFI Python wrapper package. These scripts are solely responsible for building the wrapper, nothing else. `build_ctd_wrapper.py` creates a dynamic build and must be executed after `build_ctd.py`, as it requires `ctd.lib` import library (or the shared library on non-Windows systems) for linking.
+### Dual-use declaration header
 
-### Dynamically Linked
+`ctd_api.h` remains valid C source while also serving as the source for CDEF
+input. `cdef_header.py` removes the include guard and the `CTD_API` or
+`CTD_DATA_API` declaration prefix, which CFFI's CDEF parser cannot consume.
+This avoids a manually maintained duplicate declaration file. `ctd.h` supplies
+the C-facing macro definitions before including `ctd_api.h`.
 
-After execution of `build_ctd_wrapper.py`, it should create in the same directory:
+### Test exposure of internal functions
 
-1. `_ctd_wrapper.c` (name is configurable in the script).
-2. `_ctd_wrapper.cp###-win_amd64.pyd` (Windows) - linked wrapper package.
-3. `Release/` subdirectory with intermediate wrapper build artifacts (.obj, .lib, .exp)
+Selected declarations and definitions use `CTD_API` rather than a literal
+`static`. Production-style configuration can give those functions internal
+linkage, while a dedicated test build can export them for the CFFI wrapper.
+This keeps test access configurable instead of making private functions
+permanently public.
 
-### Statically Linked with Embedded CTD Library
+## Building and running one mode
 
-Dynamical linking is probably a more natural/simpler approach. The alternative route is provided via the `build_ctd_wrapper_embedded.py` script. It does not use prebuilt `ctd.lib`, but uses the `ctd.c` source instead. The result of `build_ctd_wrapper_embedded.py` execution is similar, except that the `Release/` subdirectory will also contain the library object `ctd.obj` file.
+Run commands from the repository root.
 
-## Running the Demo
+For the dynamically linked wrapper, build the standalone library explicitly
+before building the wrapper:
 
-After either statically linked or dynamically linked wrapper is built, the demo script `ctd_demo.py` can be executed, which should produce formatted console output with the results of calling `ctd` functions.
+```console
+python ctd/src/ctd/build_ctd.py
+python ctd/src/ctd/build_ctd_wrapper.py
+python ctd/src/ctd/ctd_demo.py
+```
 
-## Key Wrapper Building Methods
+`build_ctd_wrapper.py` does not build its native prerequisite. Keeping the
+standalone library build distinct makes compilation and linkage failures
+visible at the correct stage.
 
-The two build scripts are largely similar, only differing in a few build options. The core logic is in the `main` function, which uses three CFFI methods:
+The embedded wrapper needs no prebuilt CTD library:
 
-1. `ffibuilder.cdef()`
-2. `ffibuilder.set_source()`
-3. `ffibuilder.compile()`
+```console
+python ctd/src/ctd/build_ctd_wrapper_embedded.py
+python ctd/src/ctd/ctd_demo.py
+```
 
-where `ffibuilder` is an instance of `cffi.FFI`.
+It compiles `ctd.c` into the extension; it does not link the extension to the
+standalone CTD static library.
 
-The `.cdef()` method expects a single multiline string declaring the C types, functions and globals needed to be available to the Python caller. `.cdef()` input may contain valid `typedef`'s, and function and variable prototypes. It does not support any preprocessor directives, except for `#define <NAME> <INT>` (but any defined `<NAME>` cannot appear anywhere else in the input, so it is not so much a preprocessor directive, as a special syntax to define constant aliases which will be exposed via corresponding `lib.<NAME>` attribute, meaning the same namespace as function and global names). The input to `.cdef()` is parsed by the [pycparser](https://github.com/eliben/pycparser) library and determines which custom C types (typedef) can be used via the `ffi` object (standard C types can be used directly) and which C functions and globals are exposed as `lib` object attributes. 
+## Test matrix: separate processes, one wrapper name
 
-`.set_source()` configures C build toolchain (such as MSVC on Windows). The first positional argument defines the name of the generated wrapper source and package. The second positional arguments defines a valid C snippet, which will be inserted into the wrapper source verbatim. When linking against the target library, this snippet at the minimum must include the target library's developer header, such as `#include "ctd.h"`. Because this snippet is inserted into the wrapper source, it may, in principle, contain any valid C, such as `typdef` declarations, implementation of functions and so on.
+The two builders intentionally produce the same module name. A native extension
+cannot be reliably unloaded and replaced inside a running Python process, so
+the mode comparison is a **sequential build-and-test matrix**, not a Pytest
+parameter.
 
-## Unit Testing Static Methods
+Run the complete matrix from the repository root in this order:
 
-There various approaches to testing static method based on special test builds and adapters, which enable access to otherwise inaccessible from outside `static` C functions and variables. The present approach relies on replacing explicit `static` qualification with a preprocessor macro, such as `CTD_API` (defined in `ctd.h`), which enables straightforward build-time control over whether a function `static` in production builds will be accessible in test builds.
+```console
+# 1. Build the standalone CTD libraries.
+python ctd/src/ctd/build_ctd.py
 
-## Dual Use (C/CDEF) Headers
+# 2. Build a wrapper dynamically linked to the shared CTD library.
+python ctd/src/ctd/build_ctd_wrapper.py
 
-One of the desired features is the ability to generate wrapping code without any manual editing of the sources and, importantly without maintaining a separate module for CFFI CDEF input. While CDEF input accepts valid C code, it does not support C macro language. To satisfy both aspects, the original `ctd.h` module has been split in two, moving part of it to `ctd_api.h`, which contains declarations to be fed to CDEF for availability in Python. The only two aspects of this module not supported by CDEF are the standard header guard wrapper and `CTD_API` part of declarations. Both components can be automatically removed from the loaded module before providing it to CDEF. The same module is included in `ctd_api.h`, so for C compiler the picture is completely equivalent to alternative with  single `ctd.h` incorporating the contents of `ctd_api.h` inline.
+# 3. Test that wrapper in a fresh Python process.
+python -m pytest
 
-## Basic Diagnostics
+# 4/5. Overwrite the stale generated wrapper outputs with an embedded build.
+# If a platform/toolchain does not overwrite them, remove only
+# ctd/src/ctd/_ctd_wrapper.c and ctd/src/ctd/_ctd_wrapper*.<extension suffix>,
+# then rerun this command. Do not remove the standalone CTD library merely to
+# switch wrapper modes.
+python ctd/src/ctd/build_ctd_wrapper_embedded.py
 
-CFFI wrapper provides two object, `ffi` and `lib`, for interacting with the C code. `ffi` provides access to custom type definitions (typedef's) included in CDEF input and C variable handling, while `lib` provides access to C functions and global variables. All accepted C statements, including typedef's, function prototypes, and variable declarations are modeled by CFFI as `ffi.CType` class.
+# 6. Test the embedded wrapper in another fresh Python process.
+python -m pytest
+```
 
-It is important to understand quickly what CFFI actually "understands" upon processing the inputs. Basically, a module using the built Python wrapper package imports two CFFI objects from the wrapper, which provide the CFFI functionality:
+Each `python -m pytest` invocation imports exactly one already-built
+`_ctd_wrapper`. The fixtures expose only that module's common `ffi` and `lib`
+objects. Ordinary behavioral tests must remain build-mode agnostic: do not try
+to unload `_ctd_wrapper`, swap native implementations during a test session, or
+add a build-mode parameter while both wrappers share an import name. Tests of
+the builder configuration itself may compare the builder modules without
+loading two native implementations.
+
+Generated `_ctd_wrapper.c`, native extensions, standalone libraries, object
+files, and build directories are disposable build artifacts and should not be
+committed.
+
+## Introspection
+
+A built wrapper exposes:
 
 ```python
 from _ctd_wrapper import ffi, lib
 ```
 
-The `ffi` object provides `typedef` information and C variable handling, while `lib` exposes declared in CDEF functions and globals as its attributes. The `ctd_introspect.py` module (together with `/ctd/src/ctd/introspect/cffi_model.py` and `/ctd/src/ctd/introspect/database.py`)  provides a convenient means to inspect this information.
+`ffi` provides C types and C data construction/conversion operations. `lib`
+provides the functions, constants, and globals declared through CDEF.
+`ctd_introspect.py` records their top-level `ffi.CType` information in the
+SQLite schema at `introspect/schema.sql`; nested CFFI types and fields can be
+serialized as structured JSON. The added `name` and `category` columns identify
+the C name and whether a record originated from the `ffi` or `lib` interface.
 
-`ffi`'s typedefs and `lib`'s globals are primarily exposed as objects of CFFI's `ffi.CType` class (note, this class is not available directly from the `cffi` package, but must be accessed as an attribute on the `ffi`, an instance of `cffi.FFI`). There is also a secondary class available as `_cffi_backend.CField`.
+Run the diagnostic only after building either wrapper:
 
-While `ffi.CType` class has a "recursive" nature (it includes attributes that may in turn include `ffi.CType` instances, as well as `_cffi_backend.CField`), it is still convenient to represent the two lists of top-level objects as a table of `ffi.CType` attributes, representing for now nested objects as structured JSON fields, rather than adding them to the same table. There are a number of ways this inspection objective can be achieved. As I often inspect SQLite databases via the convenient GUI dba tools, I decided to parse the `ffi.CType` data into an ad hoc SQLite database (defined by schema `introspect/schema.sql`). 
+```console
+python ctd/src/ctd/ctd_introspect.py
+```
 
-The core `ffi.CType` data provided by both `ffi` for types and `lib` for function/variable definitions is placed into the `ctypes` table with two additional columns:
-- "name" column contains the C name returned by `ffi.list_types()` or represented by a `lib` attribute, as this identifier is not included in `CType`;
-- "category" column identifies the source, `ffi` or `lib` (both modeled by the same `CType` and presently I do not see a good reason to split the two sets into separate tables). 
+## Scope
 
-The `database.py` module is responsible for handling the necessary database functionality, while `cffi_model.py` retrieves information from the `ffi` and `lib` objects and parses it into dictionaries.
+This is an exploratory engineering repository, not a general C binding
+generator. It deliberately does not attempt arbitrary preprocessing, libclang
+source analysis, a replacement build system, or automatic normalization of
+every nested CFFI object. The goal is a practical and inspectable CFFI/Pytest
+workflow that keeps dynamic and embedded integration available for comparison.

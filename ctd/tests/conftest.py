@@ -9,13 +9,14 @@ from types import ModuleType
 
 import pytest
 
-CTD_SOURCE = Path(__file__).parents[1] / "src" / "ctd"
-sys.path.insert(0, str(CTD_SOURCE))
+CTD_SOURCE_ROOT = Path(__file__).parents[1] / "src"
+CTD_MODULE_DIRECTORY = CTD_SOURCE_ROOT / "ctd"
+sys.path[:0] = [str(CTD_SOURCE_ROOT), str(CTD_MODULE_DIRECTORY)]
 
 
 @pytest.fixture(scope="session")
 def wrapper_module() -> ModuleType:
-    """Import the generated extension only when a native fixture needs it."""
+    """Import whichever build mode produced the common wrapper module."""
     return import_module("_ctd_wrapper")
 
 
