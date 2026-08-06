@@ -36,6 +36,7 @@ def point_tuple(point: ffi.CData) -> tuple[float, float]:
 
 
 def main() -> int:
+    # Recommended canonical pattern catalogue - 1. Globals and status values.
     heading("Version, enum constants, and exported globals")
 
     print(f"ctd_version(): {c_string(lib.ctd_version())}")
@@ -55,6 +56,13 @@ def main() -> int:
         {
             "CTD_NUMBER_I64": lib.CTD_NUMBER_I64,
             "CTD_NUMBER_F64": lib.CTD_NUMBER_F64,
+        },
+    )
+    print(
+        "binary-operation constants:",
+        {
+            "CTD_BINARY_OPERATION_ADD": lib.CTD_BINARY_OPERATION_ADD,
+            "CTD_BINARY_OPERATION_MULTIPLY": lib.CTD_BINARY_OPERATION_MULTIPLY,
         },
     )
     print(f"ctd_global_constant: {lib.ctd_global_constant}")
@@ -80,15 +88,13 @@ def main() -> int:
     ):
         print(f"{status}: {status_name(status)}")
 
+    # Recommended canonical pattern catalogue - 2. Scalar and value operations.
     heading("Scalar operations")
 
     print(f"ctd_add(17, 25): {lib.ctd_add(17, 25)}")
-    print(f"ctd_subtract(17, 25): {lib.ctd_subtract(17, 25)}")
     print(f"ctd_negate_i32(-123): {lib.ctd_negate_i32(-123)}")
     print(f"ctd_add_u64(2**63, 7): {lib.ctd_add_u64(2**63, 7)}")
     print(f"ctd_hypot_squared(3.0, 4.0): {lib.ctd_hypot_squared(3.0, 4.0)}")
-    print(f"ctd_operation_add(6, 7): {lib.ctd_operation_add(6, 7)}")
-    print(f"ctd_operation_multiply(6, 7): {lib.ctd_operation_multiply(6, 7)}")
 
     quotient = ffi.new("double *")
     status = lib.ctd_divide(22.0, 7.0, quotient)
@@ -98,6 +104,7 @@ def main() -> int:
     status = lib.ctd_divide(1.0, 0.0, quotient)
     show_status("ctd_divide(1.0, 0.0)", status)
 
+    # Recommended canonical pattern catalogue - 3. Scalar pointer operations.
     heading("Scalar pointer operations")
 
     magic = ffi.new("int32_t *")
@@ -116,6 +123,7 @@ def main() -> int:
     show_status("ctd_swap_i32()", status)
     print(f"values: left={left[0]}, right={right[0]}")
 
+    # Recommended canonical pattern catalogue - 4. Typed arrays.
     heading("Typed arrays and statistics")
 
     values = ffi.new("int32_t[]", [5, -2, 11, 4])
@@ -124,10 +132,6 @@ def main() -> int:
     status = lib.ctd_sum_i32(values, 4, total)
     show_status("ctd_sum_i32()", status)
     print(f"sum: {total[0]}")
-
-    status = lib.ctd_scale_i32(values, 4, 3)
-    show_status("ctd_scale_i32()", status)
-    print(f"scaled: {list(values)}")
 
     status = lib.ctd_reverse_i32(values, 4)
     show_status("ctd_reverse_i32()", status)
@@ -180,6 +184,7 @@ def main() -> int:
     finally:
         lib.ctd_free(allocated)
 
+    # Recommended canonical pattern catalogue - 5. Byte buffers.
     heading("Byte buffers")
 
     source_bytes = b"\x00\x01\x7f\x80\xff"
@@ -211,6 +216,7 @@ def main() -> int:
     show_status("ctd_xor_bytes()", status)
     print(f"XOR result: {bytes(ffi.buffer(destination, required_count[0]))!r}")
 
+    # Recommended canonical pattern catalogue - 6. Strings.
     heading("Strings")
 
     text = b"cffi"
@@ -257,6 +263,7 @@ def main() -> int:
     show_status("ctd_copy_string() copy", status)
     print(f"copied string: {c_string(copied_string)!r}")
 
+    # Recommended canonical pattern catalogue - 7. Structures and tagged unions.
     heading("Structures and fixed-size structure arrays")
 
     first = lib.ctd_point_make(2.0, 3.0)
@@ -305,12 +312,17 @@ def main() -> int:
         f"converted={converted[0]}"
     )
 
+    # Recommended canonical pattern catalogue - 8. Callbacks and function pointers.
     heading("Callbacks and returned function pointers")
 
     user_data = ffi.new("int *", 10)
 
     @ffi.callback("int(int, int, void *)")
-    def weighted_add(callback_left: int, callback_right: int, opaque) -> int:
+    def weighted_add(
+        callback_left: int,
+        callback_right: int,
+        opaque: ffi.CData,
+    ) -> int:
         weight = ffi.cast("int *", opaque)[0]
         return callback_left + callback_right * weight
 
@@ -325,13 +337,18 @@ def main() -> int:
     show_status("ctd_apply_callback()", status)
     print(f"callback result: {callback_result[0]}")
 
-    for selector in (0, 1, 99):
+    for selector in (
+        lib.CTD_BINARY_OPERATION_ADD,
+        lib.CTD_BINARY_OPERATION_MULTIPLY,
+        99,
+    ):
         operation = lib.ctd_get_binary_operation(selector)
         if operation == ffi.NULL:
             print(f"ctd_get_binary_operation({selector}): NULL")
         else:
             print(f"ctd_get_binary_operation({selector})(6, 7): {operation(6, 7)}")
 
+    # Recommended canonical pattern catalogue - 9. Opaque handles and release.
     heading("Opaque counter handle")
 
     counter = lib.ctd_counter_create(100)
@@ -349,7 +366,7 @@ def main() -> int:
         show_status("ctd_counter_add()", status)
         print(f"value: {counter_value[0]}")
     finally:
-        lib.ctd_counter_destroy(counter)
+        lib.ctd_free(counter)
 
     heading("Explicit NULL-safe release")
 

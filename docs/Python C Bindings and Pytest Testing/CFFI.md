@@ -1638,7 +1638,6 @@ You still select the declarations in `cdef()`:
 ```python
 ffibuilder.cdef("""
     int ctd_add(int a, int b);
-    int ctd_subtract(int a, int b);
 """)
 ```
 

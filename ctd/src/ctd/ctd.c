@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Recommended canonical pattern catalogue - 1. Globals and status values. */
 CTD_API int ctd_global_counter = 0;
 CTD_API const int ctd_global_constant = 1729;
 CTD_API const char ctd_global_name[] = "ctd";
@@ -38,12 +39,18 @@ CTD_API const char *ctd_status_name(ctd_status status) {
     }
 }
 
-CTD_API int ctd_add(int a, int b) {
-    return a + b;
+CTD_API int ctd_global_counter_increment(void) {
+    ctd_global_counter += 1;
+    return ctd_global_counter;
 }
 
-CTD_API int ctd_subtract(int a, int b) {
-    return a - b;
+CTD_API void ctd_global_counter_reset(void) {
+    ctd_global_counter = 0;
+}
+
+/* Recommended canonical pattern catalogue - 2. Scalar and value operations. */
+CTD_API int ctd_add(int a, int b) {
+    return a + b;
 }
 
 CTD_API int32_t ctd_negate_i32(int32_t value) {
@@ -71,6 +78,7 @@ CTD_API ctd_status ctd_divide(double numerator, double denominator, double *resu
     return CTD_OK;
 }
 
+/* Recommended canonical pattern catalogue - 3. Scalar pointer operations. */
 CTD_API ctd_status ctd_get_magic(int32_t *result) {
     if (result == NULL) {
         return CTD_ERROR_NULL;
@@ -107,6 +115,7 @@ CTD_API ctd_status ctd_swap_i32(int32_t *a, int32_t *b) {
     return CTD_OK;
 }
 
+/* Recommended canonical pattern catalogue - 4. Typed arrays. */
 CTD_API ctd_status ctd_sum_i32(const int32_t *values, size_t count, int64_t *result) {
     size_t index;
     int64_t sum = 0;
@@ -124,20 +133,6 @@ CTD_API ctd_status ctd_sum_i32(const int32_t *values, size_t count, int64_t *res
     }
 
     *result = sum;
-    return CTD_OK;
-}
-
-CTD_API ctd_status ctd_scale_i32(int32_t *values, size_t count, int32_t factor) {
-    size_t index;
-
-    if (values == NULL && count != 0) {
-        return CTD_ERROR_NULL;
-    }
-
-    for (index = 0; index < count; ++index) {
-        values[index] *= factor;
-    }
-
     return CTD_OK;
 }
 
@@ -275,6 +270,7 @@ CTD_API int32_t *ctd_alloc_sequence_i32(int32_t start, size_t count) {
     return result;
 }
 
+/* Recommended canonical pattern catalogue - 5. Byte buffers. */
 CTD_API ctd_status ctd_copy_bytes(
     const uint8_t *source,
     size_t source_count,
@@ -318,6 +314,7 @@ CTD_API ctd_status ctd_xor_bytes(uint8_t *buffer, size_t count, uint8_t mask) {
     return CTD_OK;
 }
 
+/* Recommended canonical pattern catalogue - 6. Strings. */
 CTD_API size_t ctd_string_length(const char *text) {
     if (text == NULL) {
         return 0;
@@ -418,6 +415,7 @@ CTD_API ctd_status ctd_copy_string(
     return CTD_OK;
 }
 
+/* Recommended canonical pattern catalogue - 7. Structures and tagged unions. */
 CTD_API ctd_point ctd_point_make(double x, double y) {
     ctd_point result;
 
@@ -521,6 +519,15 @@ CTD_API ctd_status ctd_value_as_f64(const ctd_value *value, double *result) {
     }
 }
 
+/* Recommended canonical pattern catalogue - 8. Callbacks and function pointers. */
+static int binary_operation_add(int left, int right) {
+    return left + right;
+}
+
+static int binary_operation_multiply(int left, int right) {
+    return left * right;
+}
+
 CTD_API ctd_status ctd_apply_callback(
     int left,
     int right,
@@ -536,34 +543,20 @@ CTD_API ctd_status ctd_apply_callback(
     return CTD_OK;
 }
 
-CTD_API int ctd_operation_add(int left, int right) {
-    return left + right;
-}
-
-CTD_API int ctd_operation_multiply(int left, int right) {
-    return left * right;
-}
-
-CTD_API ctd_binary_operation ctd_get_binary_operation(int selector) {
-    switch (selector) {
-        case 0:
-            return ctd_operation_add;
-        case 1:
-            return ctd_operation_multiply;
+CTD_API ctd_binary_operation ctd_get_binary_operation(
+    ctd_binary_operation_kind operation_kind
+) {
+    switch (operation_kind) {
+        case CTD_BINARY_OPERATION_ADD:
+            return binary_operation_add;
+        case CTD_BINARY_OPERATION_MULTIPLY:
+            return binary_operation_multiply;
         default:
             return NULL;
     }
 }
 
-CTD_API int ctd_global_counter_increment(void) {
-    ctd_global_counter += 1;
-    return ctd_global_counter;
-}
-
-CTD_API void ctd_global_counter_reset(void) {
-    ctd_global_counter = 0;
-}
-
+/* Recommended canonical pattern catalogue - 9. Opaque handles and release. */
 CTD_API ctd_counter *ctd_counter_create(int initial_value) {
     ctd_counter *counter;
 
@@ -575,10 +568,6 @@ CTD_API ctd_counter *ctd_counter_create(int initial_value) {
 
     counter->value = initial_value;
     return counter;
-}
-
-CTD_API void ctd_counter_destroy(ctd_counter *counter) {
-    free(counter);
 }
 
 CTD_API ctd_status ctd_counter_get(const ctd_counter *counter, int *result) {
