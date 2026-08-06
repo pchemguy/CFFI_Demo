@@ -15,6 +15,13 @@ struct ctd_counter {
     int value;
 };
 
+struct ctd_accumulator {
+    int32_t *values;
+    size_t count;
+    size_t capacity;
+    int64_t total;
+};
+
 /* Recommended canonical pattern catalogue - 1. Globals and status values. */
 CTD_API int ctd_global_counter = 0;
 CTD_API ctd_status ctd_global_last_status = CTD_OK;
@@ -49,6 +56,9 @@ CTD_API const char *ctd_status_name(ctd_status status) {
 }
 
 CTD_API int ctd_global_counter_increment(void) {
+    if (ctd_global_counter == INT_MAX) {
+        return ctd_global_counter;
+    }
     ctd_global_counter += 1;
     return ctd_global_counter;
 }
@@ -65,10 +75,19 @@ CTD_API void ctd_globals_reset(void) {
 
 /* Recommended canonical pattern catalogue - 2. Scalar and value operations. */
 CTD_API int ctd_add(int a, int b) {
+    if (b > 0 && a > INT_MAX - b) {
+        return INT_MAX;
+    }
+    if (b < 0 && a < INT_MIN - b) {
+        return INT_MIN;
+    }
     return a + b;
 }
 
 CTD_API int32_t ctd_negate_i32(int32_t value) {
+    if (value == INT32_MIN) {
+        return INT32_MAX;
+    }
     return -value;
 }
 
@@ -144,6 +163,10 @@ CTD_API ctd_status ctd_sum_i32(const int32_t *values, size_t count, int64_t *res
     }
 
     for (index = 0; index < count; ++index) {
+        if ((values[index] > 0 && sum > INT64_MAX - values[index]) ||
+            (values[index] < 0 && sum < INT64_MIN - values[index])) {
+            return CTD_ERROR_RANGE;
+        }
         sum += values[index];
     }
 
@@ -179,6 +202,26 @@ CTD_API ctd_status ctd_reverse_i32(int32_t *values, size_t count) {
     return CTD_OK;
 }
 
+CTD_API ctd_status ctd_scale_i32(int32_t *values, size_t count, int32_t factor) {
+    size_t index;
+
+    if (values == NULL && count != 0) {
+        return CTD_ERROR_NULL;
+    }
+
+    for (index = 0; index < count; ++index) {
+        int64_t scaled = (int64_t)values[index] * (int64_t)factor;
+        if (scaled < INT32_MIN || scaled > INT32_MAX) {
+            return CTD_ERROR_RANGE;
+        }
+    }
+
+    for (index = 0; index < count; ++index) {
+        values[index] = (int32_t)((int64_t)values[index] * (int64_t)factor);
+    }
+    return CTD_OK;
+}
+
 CTD_API ctd_status ctd_compute_stats_i32(
     const int32_t *values,
     size_t count,
@@ -201,6 +244,10 @@ CTD_API ctd_status ctd_compute_stats_i32(
         return CTD_ERROR_RANGE;
     }
 
+    if (count > (size_t)INT64_MAX) {
+        return CTD_ERROR_RANGE;
+    }
+
     minimum = values[0];
     maximum = values[0];
     sum = values[0];
@@ -214,6 +261,10 @@ CTD_API ctd_status ctd_compute_stats_i32(
             maximum = values[index];
         }
 
+        if ((values[index] > 0 && sum > INT64_MAX - values[index]) ||
+            (values[index] < 0 && sum < INT64_MIN - values[index])) {
+            return CTD_ERROR_RANGE;
+        }
         sum += values[index];
     }
 
@@ -253,6 +304,11 @@ CTD_API ctd_status ctd_make_sequence_i32(
         return CTD_ERROR_CAPACITY;
     }
 
+    if (count - 1 > (size_t)INT32_MAX ||
+        start > INT32_MAX - (int32_t)(count - 1)) {
+        return CTD_ERROR_RANGE;
+    }
+
     for (index = 0; index < count; ++index) {
         buffer[index] = start + (int32_t)index;
     }
@@ -272,6 +328,11 @@ CTD_API int32_t *ctd_alloc_sequence_i32(int32_t start, size_t count) {
         return NULL;
     }
 
+    if (count - 1 > (size_t)INT32_MAX ||
+        start > INT32_MAX - (int32_t)(count - 1)) {
+        return NULL;
+    }
+
     result = (int32_t *)malloc(count * sizeof(*result));
 
     if (result == NULL) {
@@ -283,6 +344,16 @@ CTD_API int32_t *ctd_alloc_sequence_i32(int32_t start, size_t count) {
     }
 
     return result;
+}
+
+CTD_API const int32_t *ctd_borrow_sequence_i32(size_t *count) {
+    static const int32_t values[] = {2, 3, 5, 7, 11};
+
+    if (count == NULL) {
+        return NULL;
+    }
+    *count = sizeof(values) / sizeof(values[0]);
+    return values;
 }
 
 /* Recommended canonical pattern catalogue - 5. Byte buffers. */
@@ -297,11 +368,11 @@ CTD_API ctd_status ctd_copy_bytes(
         return CTD_ERROR_NULL;
     }
 
-    *required_count = source_count;
-
     if (source == NULL && source_count != 0) {
         return CTD_ERROR_NULL;
     }
+
+    *required_count = source_count;
 
     if (source_count == 0) {
         return CTD_OK;
@@ -329,8 +400,26 @@ CTD_API ctd_status ctd_xor_bytes(uint8_t *buffer, size_t count, uint8_t mask) {
     return CTD_OK;
 }
 
+CTD_API ctd_status ctd_checksum_bytes(
+    const uint8_t *bytes,
+    size_t length,
+    uint32_t *result
+) {
+    size_t index;
+    uint32_t checksum = 0;
+
+    if (result == NULL || (bytes == NULL && length != 0)) {
+        return CTD_ERROR_NULL;
+    }
+    for (index = 0; index < length; ++index) {
+        checksum = (checksum + bytes[index]) & UINT32_C(0xffffffff);
+    }
+    *result = checksum;
+    return CTD_OK;
+}
+
 /* Recommended canonical pattern catalogue - 6. Strings. */
-CTD_API size_t ctd_string_length(const char *text) {
+CTD_API size_t ctd_utf8_byte_size(const char *text) {
     if (text == NULL) {
         return 0;
     }
@@ -387,24 +476,26 @@ CTD_API char *ctd_alloc_greeting(const char *name) {
 
 CTD_API ctd_status ctd_ascii_upper(char *buffer, size_t capacity) {
     size_t index;
+    char *terminator;
 
     if (buffer == NULL) {
         return CTD_ERROR_NULL;
     }
 
-    for (index = 0; index < capacity; ++index) {
-        unsigned char character = (unsigned char)buffer[index];
+    terminator = (char *)memchr(buffer, '\0', capacity);
+    if (terminator == NULL) {
+        return CTD_ERROR_CAPACITY;
+    }
 
-        if (character == '\0') {
-            return CTD_OK;
-        }
+    for (index = 0; index < (size_t)(terminator - buffer); ++index) {
+        unsigned char character = (unsigned char)buffer[index];
 
         if (character >= 'a' && character <= 'z') {
             buffer[index] = (char)(character - 'a' + 'A');
         }
     }
 
-    return CTD_ERROR_CAPACITY;
+    return CTD_OK;
 }
 
 CTD_API ctd_status ctd_copy_string(
@@ -419,7 +510,11 @@ CTD_API ctd_status ctd_copy_string(
         return CTD_ERROR_NULL;
     }
 
-    size = strlen(source) + 1;
+    size = strlen(source);
+    if (size == SIZE_MAX) {
+        return CTD_ERROR_RANGE;
+    }
+    size += 1;
     *required_size = size;
 
     if (destination == NULL || destination_capacity < size) {
@@ -585,13 +680,33 @@ CTD_API ctd_status ctd_describe_i32(
     return CTD_OK;
 }
 
+CTD_API const ctd_descriptor *ctd_static_descriptor(void) {
+    static const int32_t values[] = {8, 13, 21};
+    static const char message[] = "static Fibonacci descriptor";
+    static const ctd_descriptor descriptor = {
+        message,
+        values,
+        sizeof(values) / sizeof(values[0])
+    };
+
+    return &descriptor;
+}
+
 /* Advanced callback and returned-function-pointer examples. */
 static int binary_operation_add(int left, int right) {
-    return left + right;
+    return ctd_add(left, right);
 }
 
 static int binary_operation_multiply(int left, int right) {
-    return left * right;
+    int64_t product = (int64_t)left * (int64_t)right;
+
+    if (product > INT_MAX) {
+        return INT_MAX;
+    }
+    if (product < INT_MIN) {
+        return INT_MIN;
+    }
+    return (int)product;
 }
 
 CTD_API ctd_status ctd_apply_callback(
@@ -650,10 +765,74 @@ CTD_API ctd_status ctd_counter_add(ctd_counter *counter, int amount, int *result
         return CTD_ERROR_NULL;
     }
 
+    if ((amount > 0 && counter->value > INT_MAX - amount) ||
+        (amount < 0 && counter->value < INT_MIN - amount)) {
+        return CTD_ERROR_RANGE;
+    }
+
     counter->value += amount;
     *result = counter->value;
 
     return CTD_OK;
+}
+
+CTD_API ctd_accumulator *ctd_accumulator_create(size_t capacity) {
+    ctd_accumulator *accumulator;
+
+    if (capacity > SIZE_MAX / sizeof(*accumulator->values)) {
+        return NULL;
+    }
+    accumulator = (ctd_accumulator *)malloc(sizeof(*accumulator));
+    if (accumulator == NULL) {
+        return NULL;
+    }
+    accumulator->values = capacity == 0
+        ? NULL
+        : (int32_t *)malloc(capacity * sizeof(*accumulator->values));
+    if (capacity != 0 && accumulator->values == NULL) {
+        ctd_free(accumulator);
+        return NULL;
+    }
+    accumulator->count = 0;
+    accumulator->capacity = capacity;
+    accumulator->total = 0;
+    return accumulator;
+}
+
+CTD_API ctd_status ctd_accumulator_add(ctd_accumulator *accumulator, int32_t value) {
+    if (accumulator == NULL) {
+        return CTD_ERROR_NULL;
+    }
+    if (accumulator->count == accumulator->capacity) {
+        return CTD_ERROR_CAPACITY;
+    }
+    if ((value > 0 && accumulator->total > INT64_MAX - value) ||
+        (value < 0 && accumulator->total < INT64_MIN - value)) {
+        return CTD_ERROR_RANGE;
+    }
+    accumulator->values[accumulator->count] = value;
+    accumulator->count += 1;
+    accumulator->total += value;
+    return CTD_OK;
+}
+
+CTD_API ctd_status ctd_accumulator_get(
+    const ctd_accumulator *accumulator,
+    int64_t *result
+) {
+    if (accumulator == NULL || result == NULL) {
+        return CTD_ERROR_NULL;
+    }
+    *result = accumulator->total;
+    return CTD_OK;
+}
+
+CTD_API void ctd_accumulator_destroy(ctd_accumulator *accumulator) {
+    if (accumulator == NULL) {
+        return;
+    }
+    ctd_free(accumulator->values);
+    ctd_free(accumulator);
 }
 
 CTD_API void ctd_free(void *pointer) {

@@ -26,6 +26,23 @@
 **   allow NULL output storage while still requiring a non-NULL size pointer.
 ** - Allocators must not be mixed: ffi.new() memory is released by Python/CFFI;
 **   CTD allocations are released only by ctd_free().
+** - Unless a declaration says otherwise, a status-returning function leaves
+**   every caller-provided OUT or INOUT object unchanged on failure.  Size-query
+**   functions are the exception: their required count/size output is set once
+**   the input has been validated, including on CTD_ERROR_CAPACITY.
+**
+** Catalogue audit (the 25 requested patterns, deliberately mapped to focused
+** functions rather than one API per line):
+**  1 ctd_add; 2 ctd_hypot_squared; 3 ctd_divide; 4 ctd_get_magic;
+**  5 ctd_increment; 6 ctd_utf8_byte_size; 7 ctd_checksum_bytes;
+**  8 ctd_select_static_string; 9 ctd_alloc_greeting; 10 ctd_copy_string;
+** 11 ctd_sum_i32; 12 ctd_reverse_i32/ctd_scale_i32;
+** 13,24,25 ctd_make_sequence_i32; 14 ctd_borrow_sequence_i32;
+** 15 ctd_alloc_sequence_i32; 16,17 ctd_point_add; 18 ctd_point_dot;
+** 19 ctd_point_translate; 20 ctd_compute_stats_i32;
+** 21 ctd_default_config; 22 ctd_accumulator_create/add/get/destroy;
+** 23 ctd_utf8_byte_size.  ctd_static_descriptor is the descriptor-structure
+** pattern whose borrowed fields have separate lifetime contracts.
 */
 
 /*
@@ -148,6 +165,7 @@ CTD_API void ctd_global_counter_reset(void);
 CTD_API void ctd_globals_reset(void);
 
 /* Recommended canonical pattern catalogue - 2. Scalar and value operations. */
+/* Saturates at INT_MIN/INT_MAX when the mathematical sum is out of range. */
 CTD_API int ctd_add(int a, int b);
 CTD_API int32_t ctd_negate_i32(int32_t value);
 CTD_API uint64_t ctd_add_u64(uint64_t a, uint64_t b);
@@ -180,6 +198,10 @@ CTD_API ctd_status ctd_sum_i32(const int32_t *values, size_t count, int64_t *res
 ** caller-owned; count unit: int32_t elements. */
 CTD_API ctd_status ctd_reverse_i32(int32_t *values, size_t count);
 
+/* values: INOUT ARRAY; NULL only when count is zero; unchanged on failure;
+** caller-owned; count unit: int32_t elements. */
+CTD_API ctd_status ctd_scale_i32(int32_t *values, size_t count, int32_t factor);
+
 /*
 ** values: IN ARRAY; non-NULL; not retained; caller-owned; count unit: int32_t
 ** elements (count must be greater than zero).
@@ -209,6 +231,11 @@ CTD_API ctd_status ctd_make_sequence_i32(
 ** after return; count unit: int32_t elements; release with ctd_free(). */
 CTD_API int32_t *ctd_alloc_sequence_i32(int32_t start, size_t count);
 
+/* count: OUT SCALAR; non-NULL; receives an element count.
+** RETURN: OUT ARRAY; non-NULL; borrowed library-owned static lifetime; the
+** returned int32_t elements must not be modified or freed. */
+CTD_API const int32_t *ctd_borrow_sequence_i32(size_t *count);
+
 /* Recommended canonical pattern catalogue - 5. Byte buffers. */
 /*
 ** source: IN BUFFER; NULL only when source_count is zero; not retained;
@@ -230,9 +257,20 @@ CTD_API ctd_status ctd_copy_bytes(
 ** caller-owned; count unit: bytes. */
 CTD_API ctd_status ctd_xor_bytes(uint8_t *buffer, size_t count, uint8_t mask);
 
+/* bytes: IN BUFFER; NULL only when length is zero; not retained; caller-owned;
+** length unit: bytes. result: OUT SCALAR; non-NULL and unchanged on failure;
+** value is the sum of all bytes modulo 2^32. */
+CTD_API ctd_status ctd_checksum_bytes(
+    const uint8_t *bytes,
+    size_t length,
+    uint32_t *result
+);
+
 /* Recommended canonical pattern catalogue - 6. Strings. */
-/* text: IN STRING; nullable; not retained; caller-owned; size inferred by NUL. */
-CTD_API size_t ctd_string_length(const char *text);
+/* text: IN UTF-8 STRING; nullable; not retained; caller-owned; size inferred
+** by NUL. RETURN is the number of encoded bytes before NUL, not Unicode code
+** points. Embedded zero bytes therefore require an explicit-length byte API. */
+CTD_API size_t ctd_utf8_byte_size(const char *text);
 /* RETURN: OUT STRING; nullable; not retained; borrowed library-owned static
 ** memory; size inferred by NUL; must not be freed. */
 CTD_API const char *ctd_select_static_string(int selector);
@@ -301,6 +339,11 @@ CTD_API ctd_status ctd_describe_i32(
     ctd_descriptor *result
 );
 
+/* RETURN: OUT DESCRIPTOR STRUCT; non-NULL; borrowed library-owned static
+** lifetime.  The structure, message, and values fields are all static and
+** read-only; count is measured in int32_t elements.  Nothing may be freed. */
+CTD_API const ctd_descriptor *ctd_static_descriptor(void);
+
 /* Advanced callback and returned-function-pointer examples. */
 /* callback: IN OPAQUE callable pointer; non-NULL; not retained; caller-owned;
 ** no size unit. user_data: IN OPAQUE; nullable; not retained; caller-owned; no
@@ -332,6 +375,16 @@ CTD_API ctd_status ctd_counter_get(const ctd_counter *counter, int *result);
 ** size unit. result: OUT SCALAR; non-NULL; not retained; caller-owned; no size
 ** unit. */
 CTD_API ctd_status ctd_counter_add(ctd_counter *counter, int amount, int *result);
+
+/* A genuinely opaque lifecycle object with a type-specific release operation.
+** Its representation and owned state are private to ctd.c. */
+CTD_API ctd_accumulator *ctd_accumulator_create(size_t capacity);
+CTD_API ctd_status ctd_accumulator_add(ctd_accumulator *accumulator, int32_t value);
+CTD_API ctd_status ctd_accumulator_get(
+    const ctd_accumulator *accumulator,
+    int64_t *result
+);
+CTD_API void ctd_accumulator_destroy(ctd_accumulator *accumulator);
 
 /* pointer: IN OPAQUE allocation; nullable; consumed/released, not retained;
 ** caller-owned before call and originally allocated by CTD; no size unit. Only
