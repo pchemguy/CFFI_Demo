@@ -318,7 +318,11 @@ def main() -> int:
     user_data = ffi.new("int *", 10)
 
     @ffi.callback("int(int, int, void *)")
-    def weighted_add(callback_left: int, callback_right: int, opaque) -> int:
+    def weighted_add(
+        callback_left: int,
+        callback_right: int,
+        opaque: ffi.CData,
+    ) -> int:
         weight = ffi.cast("int *", opaque)[0]
         return callback_left + callback_right * weight
 
