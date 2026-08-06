@@ -1,9 +1,16 @@
 import platform
+from importlib import import_module
 from pathlib import Path
 
 from cffi import FFI
 
-from ctd.cdef_header import load_cdef_header as load_cdef_header
+_cdef_header = (
+    import_module(".cdef_header", __package__)
+    if __package__
+    else import_module("cdef_header")
+)
+load_cdef_header = _cdef_header.load_cdef_header
+
 
 PROGRAM_NAME = "CTD"
 PREFIX = Path(__file__).resolve().parent

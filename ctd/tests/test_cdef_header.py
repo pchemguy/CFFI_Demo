@@ -1,5 +1,8 @@
 import re
+import subprocess
+import sys
 
+import pytest
 from cffi import FFI
 
 from ctd import build_ctd_wrapper, build_ctd_wrapper_embedded
@@ -18,3 +21,19 @@ def test_wrapper_builds_load_the_same_valid_cdef() -> None:
     assert not re.search(api_prefix, dynamic_declarations, re.MULTILINE)
 
     FFI().cdef(dynamic_declarations)
+
+
+@pytest.mark.parametrize(
+    "module_name", ["build_ctd_wrapper", "build_ctd_wrapper_embedded"]
+)
+def test_builder_imports_from_its_script_directory(module_name: str) -> None:
+    builder_directory = build_ctd_wrapper.CDEF_HEADER.parent
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            f"import {module_name}; assert callable({module_name}.load_cdef_header)",
+        ],
+        cwd=builder_directory,
+        check=True,
+    )
