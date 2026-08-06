@@ -17,9 +17,13 @@ struct ctd_counter {
 
 /* Recommended canonical pattern catalogue - 1. Globals and status values. */
 CTD_API int ctd_global_counter = 0;
-CTD_API const int ctd_global_constant = 1729;
-CTD_API const char ctd_global_name[] = "ctd";
-CTD_API const ctd_point ctd_global_origin = {0.0, 0.0};
+CTD_API ctd_status ctd_global_last_status = CTD_OK;
+CTD_API double ctd_global_scale = 1.0;
+
+CTD_API const size_t ctd_max_supported_point_count = 1024;
+CTD_API const double ctd_numeric_epsilon = 1.0e-12;
+CTD_API const char ctd_library_name[] = "CTD";
+CTD_API const ctd_point ctd_origin_point = {0.0, 0.0};
 
 CTD_API const char *ctd_version(void) {
     return "ctd 1.0";
@@ -51,6 +55,12 @@ CTD_API int ctd_global_counter_increment(void) {
 
 CTD_API void ctd_global_counter_reset(void) {
     ctd_global_counter = 0;
+}
+
+CTD_API void ctd_globals_reset(void) {
+    ctd_global_counter = 0;
+    ctd_global_last_status = CTD_OK;
+    ctd_global_scale = 1.0;
 }
 
 /* Recommended canonical pattern catalogue - 2. Scalar and value operations. */

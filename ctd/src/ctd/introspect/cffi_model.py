@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
 import _cffi_backend
-
 
 __all__ = (
     "CFFITarget",
@@ -17,17 +15,22 @@ __all__ = (
 @dataclass(frozen=True)
 class CFFITarget:
     """A CFFI API out-of-line target.
-    
+
     Attributes:
         ffi: The ``FFI`` object exported by the out-of-line CFFI extension module.
         lib: The library interface object exported by the out-of-line CFFI extension
             module, providing access to declared C functions, variables, and constants.
     """
-    ffi: Any
-    lib: Any
+
+    ffi: _cffi_backend.FFI
+    lib: _cffi_backend.Lib
 
     @classmethod
-    def bind(cls, ffi: Any, lib: Any) -> CFFITarget:
+    def bind(
+        cls,
+        ffi: _cffi_backend.FFI,
+        lib: _cffi_backend.Lib,
+    ) -> CFFITarget:
         """Create and install the active CFFI target."""
         global cffi_target
 
@@ -44,45 +47,48 @@ cffi_target: CFFITarget | None = None
 
 class CTypeKinds(StrEnum):
     PRIMITIVE = "primitive"
-    POINTER   = "pointer"
-    ARRAY     = "array"
-    FUNCTION  = "function"
-    STRUCT    = "struct"
-    UNION     = "union"
-    ENUM      = "enum"
+    POINTER = "pointer"
+    ARRAY = "array"
+    FUNCTION = "function"
+    STRUCT = "struct"
+    UNION = "union"
+    ENUM = "enum"
 
 
 class CFieldAttributes(StrEnum):
     BITSHIFT = "bitshift"
-    BITSIZE  = "bitsize"
-    FLAGS    = "flags"
-    OFFSET   = "offset"
-    TYPE     = "type"
+    BITSIZE = "bitsize"
+    FLAGS = "flags"
+    OFFSET = "offset"
+    TYPE = "type"
 
 
 _fattr_names: list[str] = [member.value for member in CFieldAttributes]
 
 
 class CTypeAttributes(StrEnum):
-    NAME      = "name"
-    CATEGORY  = "category"
-    CNAME     = "cname"
-    KIND      = "kind"
-    ITEM      = "item"
-    LENGTH    = "length"
-    FIELDS    = "fields"
-    ARGS      = "args"
-    RESULT    = "result"
-    ELLIPSIS  = "ellipsis"
-    ABI       = "abi"
-    ELEMENTS  = "elements"
+    NAME = "name"
+    CATEGORY = "category"
+    CNAME = "cname"
+    KIND = "kind"
+    ITEM = "item"
+    LENGTH = "length"
+    FIELDS = "fields"
+    ARGS = "args"
+    RESULT = "result"
+    ELLIPSIS = "ellipsis"
+    ABI = "abi"
+    ELEMENTS = "elements"
     RELEMENTS = "relements"
 
 
 _attr_names: list[str] = [member.value for member in CTypeAttributes]
 
 
-def _ctype2dict(ctype: "ffi.CType", seen: set = None) -> dict[str, Any]:
+def _ctype2dict(
+    ctype: _cffi_backend.CType,
+    seen: set[_cffi_backend.CType] | None = None,
+) -> dict[str, Any]:
     if cffi_target is None:
         raise RuntimeError(
             "CFFI target is not initialized; call CFFITarget.bind(ffi, lib) "
@@ -95,16 +101,23 @@ def _ctype2dict(ctype: "ffi.CType", seen: set = None) -> dict[str, Any]:
     if ctype in seen:
         return {
             "cname": ctype.cname,
-            "kind":  ctype.kind,
+            "kind": ctype.kind,
             "recursive": True,
-        }   
-    
+        }
+
+    seen = seen | {ctype}
     ffi = cffi_target.ffi
 
     ctype_dict: dict[str, Any] = {}
     for attr_name in _attr_names:
+        if attr_name == "fields" and ctype.kind in {"struct", "union"}:
+            try:
+                ffi.sizeof(ctype)
+            except ffi.error:
+                continue
+
         attr_value = getattr(ctype, attr_name, None)
-        if not attr_value is None:
+        if attr_value is not None:
             ctype_dict[attr_name] = attr_value
 
     if isinstance(ctype_dict.get("item"), ffi.CType):
@@ -122,11 +135,13 @@ def _ctype2dict(ctype: "ffi.CType", seen: set = None) -> dict[str, Any]:
     return ctype_dict
 
 
-def _process_field(fields: list | tuple, seen: set) -> list[dict[str, Any]]:
+def _process_field(
+    fields: list[tuple[str, object]] | tuple[tuple[str, object], ...],
+    seen: set[_cffi_backend.CType],
+) -> list[dict[str, Any]]:
     fields_list: list[dict[str, Any]] = []
-    for field in fields:
-        field_name: str = field[0]
-        field_value = field[1]
+    for field_entry in fields:
+        field_name, field_value = field_entry
         field_dict: dict[str, Any] = {"name": field_name}
 
         if isinstance(field_value, _cffi_backend.CField):
@@ -134,7 +149,7 @@ def _process_field(fields: list | tuple, seen: set) -> list[dict[str, Any]]:
                 fattr_value = getattr(field_value, fattr_name, None)
                 if fattr_value is None:
                     continue
-        
+
                 if isinstance(fattr_value, cffi_target.ffi.CType):
                     field_dict[fattr_name] = _ctype2dict(fattr_value, seen)
                 else:
@@ -143,7 +158,7 @@ def _process_field(fields: list | tuple, seen: set) -> list[dict[str, Any]]:
             field_dict["field_object"] = field_value
 
         fields_list.append(field_dict)
-    
+
     return fields_list
 
 
@@ -154,8 +169,10 @@ def _ffiname2dict(name: str) -> dict[str, Any]:
             "before creating CEnumSpec instances"
         )
 
-    ctype: "ffi.CTypes" = cffi_target.ffi.typeof(name)
-    return {"name": name, "category": "ffi_typedef", "ctype": ctype} | _ctype2dict(ctype)
+    ctype: _cffi_backend.CType = cffi_target.ffi.typeof(name)
+    return {"name": name, "category": "ffi_typedef", "ctype": ctype} | _ctype2dict(
+        ctype
+    )
 
 
 def _libname2dict(name: str) -> dict[str, Any]:
@@ -166,7 +183,9 @@ def _libname2dict(name: str) -> dict[str, Any]:
         )
 
     try:
-        ctype: "ffi.CTypes" = cffi_target.ffi.typeof(getattr(cffi_target.lib, name))
+        ctype: _cffi_backend.CType = cffi_target.ffi.typeof(
+            getattr(cffi_target.lib, name)
+        )
     except TypeError:
         return {
             "name": name,
