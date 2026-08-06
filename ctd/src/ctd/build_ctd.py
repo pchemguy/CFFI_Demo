@@ -1,15 +1,15 @@
 """
 https://chatgpt.com/c/6a717551-16c0-83ed-9f08-18ac9077ee33
 """
+
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from setuptools._distutils.ccompiler import CCompiler, new_compiler
 from setuptools._distutils.sysconfig import customize_compiler
-
 
 PREFIX = Path(__file__).resolve().parent
 
@@ -66,9 +66,9 @@ def link_flags(compiler_type: str, import_library: Path | None) -> list[str]:
     return flags
 
 
-def macros(shared: bool) -> list[tuple[str, str | None]]:
+def macros(shared: bool) -> list[tuple[str] | tuple[str, str | None]]:
     if shared:
-        macro_list = [
+        macro_list: list[tuple[str] | tuple[str, str | None]] = [
             ("CTD_C_API", None),
             ("CTD_BUILD_LIB", None),
         ]

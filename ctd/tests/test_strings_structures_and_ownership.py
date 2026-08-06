@@ -3,22 +3,26 @@ from __future__ import annotations
 
 import pytest
 
+from tests.cffi_types import CffiValue
 
-def copy_nullable_string(ffi, pointer) -> bytes | None:
+
+def copy_nullable_string(ffi: CffiValue, pointer: CffiValue) -> bytes | None:
     return None if pointer == ffi.NULL else ffi.string(pointer)
 
 
-def unpack_i32(ffi, pointer, count: int) -> list[int]:
+def unpack_i32(ffi: CffiValue, pointer: CffiValue, count: int) -> list[int]:
     return list(ffi.unpack(pointer, count))
 
 
-def copy_descriptor(ffi, descriptor) -> tuple[bytes, list[int]]:
+def copy_descriptor(ffi: CffiValue, descriptor: CffiValue) -> tuple[bytes, list[int]]:
     return ffi.string(descriptor.message), unpack_i32(
         ffi, descriptor.values, descriptor.count
     )
 
 
-def copy_node(ffi, node) -> tuple[int, object | None, object | None] | None:
+def copy_node(
+    ffi: CffiValue, node: CffiValue
+) -> tuple[int, object | None, object | None] | None:
     if node == ffi.NULL:
         return None
     return node.value, copy_node(ffi, node.next), copy_node(ffi, node.child)
@@ -34,7 +38,7 @@ def copy_node(ffi, node) -> tuple[int, object | None, object | None] | None:
     ],
 )
 def test_ascii_upper_success(
-    ffi, lib, initial: bytes, capacity: int, expected: bytes
+    ffi: CffiValue, lib: CffiValue, initial: bytes, capacity: int, expected: bytes
 ) -> None:
     storage = ffi.new("char[]", initial + b"\0")
     assert lib.ctd_ascii_upper(storage, capacity) == lib.CTD_OK
@@ -50,8 +54,8 @@ def test_ascii_upper_success(
     ],
 )
 def test_ascii_upper_failure_preserves_storage(
-    ffi,
-    lib,
+    ffi: CffiValue,
+    lib: CffiValue,
     initial: bytes,
     capacity: int,
     expected_status: str,
@@ -75,8 +79,8 @@ def test_ascii_upper_failure_preserves_storage(
     ],
 )
 def test_copy_string_capacity_contract(
-    ffi,
-    lib,
+    ffi: CffiValue,
+    lib: CffiValue,
     capacity: int,
     size_query: bool,
     expected_status: str,
@@ -103,7 +107,14 @@ def test_copy_string_capacity_contract(
         pytest.param((0.0, 0.0), (0.0, 0.0), (0.0, 0.0), 0.0, id="zero"),
     ],
 )
-def test_point_operations(ffi, lib, left, right, expected_sum, expected_dot) -> None:
+def test_point_operations(
+    ffi: CffiValue,
+    lib: CffiValue,
+    left: CffiValue,
+    right: CffiValue,
+    expected_sum: CffiValue,
+    expected_dot: CffiValue,
+) -> None:
     a = lib.ctd_point_make(*left)
     b = lib.ctd_point_make(*right)
     combined = lib.ctd_point_add(a, b)
@@ -123,8 +134,8 @@ def test_point_operations(ffi, lib, left, right, expected_sum, expected_dot) -> 
     ],
 )
 def test_compute_stats_success(
-    ffi,
-    lib,
+    ffi: CffiValue,
+    lib: CffiValue,
     values: list[int],
     expected_minimum: int,
     expected_maximum: int,
@@ -149,8 +160,8 @@ def test_compute_stats_success(
     ],
 )
 def test_compute_stats_failure_preserves_output(
-    ffi,
-    lib,
+    ffi: CffiValue,
+    lib: CffiValue,
     values: list[int] | None,
     count: int,
     expected_status: str,
@@ -180,7 +191,13 @@ def test_compute_stats_failure_preserves_output(
         pytest.param("f64", 3.25, 3.25, id="f64"),
     ],
 )
-def test_tagged_union_conversions(ffi, lib, kind, value, expected) -> None:
+def test_tagged_union_conversions(
+    ffi: CffiValue,
+    lib: CffiValue,
+    kind: CffiValue,
+    value: CffiValue,
+    expected: CffiValue,
+) -> None:
     if kind == "i64":
         tagged = lib.ctd_value_from_i64(value)
     elif kind == "f64":
@@ -197,7 +214,12 @@ def test_tagged_union_conversions(ffi, lib, kind, value, expected) -> None:
     ],
 )
 def test_tagged_union_conversion_failure_preserves_output(
-    ffi, lib, kind: int, expected_status: str, expected: float, output_changes: bool
+    ffi: CffiValue,
+    lib: CffiValue,
+    kind: int,
+    expected_status: str,
+    expected: float,
+    output_changes: bool,
 ) -> None:
     tagged = lib.ctd_value_from_i64(0)
     tagged.kind = kind
@@ -210,14 +232,16 @@ def test_tagged_union_conversion_failure_preserves_output(
     assert (result[0] != sentinel) is output_changes
 
 
-def test_descriptor_helper_copies_borrowed_nested_data(ffi, lib) -> None:
+def test_descriptor_helper_copies_borrowed_nested_data(
+    ffi: CffiValue, lib: CffiValue
+) -> None:
     assert copy_descriptor(ffi, lib.ctd_static_descriptor()) == (
         b"static Fibonacci descriptor",
         [8, 13, 21],
     )
 
 
-def test_recursive_node_descriptor_copy(ffi) -> None:
+def test_recursive_node_descriptor_copy(ffi: CffiValue) -> None:
     child = ffi.new("ctd_node *", {"value": 3})
     tail = ffi.new("ctd_node *", {"value": 2, "child": child})
     root = ffi.new("ctd_node *", {"value": 1, "next": tail})
@@ -225,7 +249,9 @@ def test_recursive_node_descriptor_copy(ffi) -> None:
     assert copy_node(ffi, root) == (1, (2, None, (3, None, None)), None)
 
 
-def test_borrowed_sequence_is_copied_to_python_storage(ffi, lib) -> None:
+def test_borrowed_sequence_is_copied_to_python_storage(
+    ffi: CffiValue, lib: CffiValue
+) -> None:
     count = ffi.new("size_t *")
     borrowed = lib.ctd_borrow_sequence_i32(count)
 
@@ -234,7 +260,9 @@ def test_borrowed_sequence_is_copied_to_python_storage(ffi, lib) -> None:
     assert copied == [2, 3, 5, 7, 11]
 
 
-def test_owned_greeting_uses_explicit_try_finally(ffi, lib) -> None:
+def test_owned_greeting_uses_explicit_try_finally(
+    ffi: CffiValue, lib: CffiValue
+) -> None:
     greeting = lib.ctd_alloc_greeting(b"Pytest")
     assert greeting != ffi.NULL
     try:
@@ -243,18 +271,22 @@ def test_owned_greeting_uses_explicit_try_finally(ffi, lib) -> None:
         lib.ctd_free(greeting)
 
 
-def test_allocated_sequence_fixture(ffi, allocated_sequence) -> None:
+def test_allocated_sequence_fixture(
+    ffi: CffiValue, allocated_sequence: CffiValue
+) -> None:
     values, count = allocated_sequence
     assert unpack_i32(ffi, values, count) == [-2, -1, 0, 1]
 
 
-def test_counter_handle_fixture(ffi, lib, counter_handle) -> None:
+def test_counter_handle_fixture(
+    ffi: CffiValue, lib: CffiValue, counter_handle: CffiValue
+) -> None:
     result = ffi.new("int *", -999)
     assert lib.ctd_counter_add(counter_handle, 5, result) == lib.CTD_OK
     assert result[0] == 15
 
 
-def test_accumulator_opaque_handle_lifecycle(ffi, lib) -> None:
+def test_accumulator_opaque_handle_lifecycle(ffi: CffiValue, lib: CffiValue) -> None:
     accumulator = lib.ctd_accumulator_create(2)
     assert accumulator != ffi.NULL
     try:
@@ -267,7 +299,7 @@ def test_accumulator_opaque_handle_lifecycle(ffi, lib) -> None:
         lib.ctd_accumulator_destroy(accumulator)
 
 
-def test_null_handle_failure_preserves_output(ffi, lib) -> None:
+def test_null_handle_failure_preserves_output(ffi: CffiValue, lib: CffiValue) -> None:
     result = ffi.new("int *", -999)
     assert lib.ctd_counter_get(ffi.NULL, result) == lib.CTD_ERROR_NULL
     assert result[0] == -999
@@ -278,7 +310,7 @@ def test_null_handle_failure_preserves_output(ffi, lib) -> None:
     [pytest.param(0, True, id="zero-count"), pytest.param(1, False, id="one-element")],
 )
 def test_alloc_sequence_null_failure_behavior(
-    ffi, lib, count: int, is_null: bool
+    ffi: CffiValue, lib: CffiValue, count: int, is_null: bool
 ) -> None:
     pointer = lib.ctd_alloc_sequence_i32(4, count)
     if is_null:

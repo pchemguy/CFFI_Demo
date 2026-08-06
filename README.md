@@ -205,11 +205,26 @@ Create or select an isolated environment as appropriate for the sandbox and
 use root `pyproject.toml` as the authoritative installation entry point:
 
 ```console
-python -m pip install -e ".[test]"
+python -m pip install -e ".[dev]"
 ```
 
 The build scripts use the C compiler and linker selected by setuptools.  No
 Windows toolchain or artifact emulation is required.
+
+Before building a wrapper, collect the suite from the repository root and
+inspect the complete node IDs.  Parameterized cases use explicit behavioral
+IDs rather than value-derived IDs:
+
+```console
+python -m pytest --collect-only
+```
+
+Run the static checks from the repository root as well:
+
+```console
+python -m ruff check ctd/src/ctd/ctd_demo.py ctd/src/ctd/build_ctd.py ctd/src/ctd/build_ctd_wrapper.py ctd/src/ctd/build_ctd_wrapper_embedded.py ctd/src/ctd/cdef_header.py ctd/tests
+python -m mypy ctd/src/ctd/ctd_demo.py ctd/src/ctd/build_ctd.py ctd/src/ctd/build_ctd_wrapper.py ctd/src/ctd/build_ctd_wrapper_embedded.py ctd/src/ctd/cdef_header.py ctd/tests
+```
 
 ## Exact commands and sequential validation matrix
 

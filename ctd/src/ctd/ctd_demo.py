@@ -5,13 +5,18 @@ Demonstrate the complete C API exposed by ``_ctd_wrapper``.
 from __future__ import annotations
 
 import sys
+from importlib import import_module
 from pathlib import Path
+from typing import Any, TypeAlias, cast
 
 MODULE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(MODULE_DIR))
 sys.path.insert(0, str(MODULE_DIR.parent))
 
-from _ctd_wrapper import ffi, lib  # noqa: E402
+CffiValue: TypeAlias = Any
+_wrapper = import_module("_ctd_wrapper")
+ffi: CffiValue = _wrapper.ffi
+lib: CffiValue = _wrapper.lib
 
 
 def heading(title: str) -> None:
@@ -19,10 +24,10 @@ def heading(title: str) -> None:
     print("-" * len(title))
 
 
-def c_string(pointer: ffi.CData) -> str | None:
+def c_string(pointer: CffiValue) -> str | None:
     if pointer == ffi.NULL:
         return None
-    return ffi.string(pointer).decode("utf-8")
+    return cast(bytes, ffi.string(pointer)).decode("utf-8")
 
 
 def status_name(status: int) -> str:
@@ -33,7 +38,7 @@ def show_status(label: str, status: int) -> None:
     print(f"{label}: {status_name(status)} ({status})")
 
 
-def point_tuple(point: ffi.CData) -> tuple[float, float]:
+def point_tuple(point: CffiValue) -> tuple[float, float]:
     return point.x, point.y
 
 
@@ -67,7 +72,7 @@ def demo_globals_and_status_values() -> None:
             "CTD_RANGE_CLAMP": lib.CTD_RANGE_CLAMP,
         },
     )
-    library_name = ffi.string(lib.ctd_library_name).decode("utf-8")
+    library_name = cast(bytes, ffi.string(lib.ctd_library_name)).decode("utf-8")
     print(f"ctd_library_name: {library_name!r}")
     print(
         "read-only numeric constants:",
@@ -279,7 +284,11 @@ def demo_strings() -> None:
     for selector in (0, 1, 2, 99):
         selected = lib.ctd_select_static_string(selector)
         # Copy a borrowed string immediately; CTD retains ownership.
-        copied = None if selected == ffi.NULL else ffi.string(selected).decode("utf-8")
+        copied = (
+            None
+            if selected == ffi.NULL
+            else cast(bytes, ffi.string(selected)).decode("utf-8")
+        )
         print(f"ctd_select_static_string({selector}): {copied!r}")
 
     greeting = lib.ctd_alloc_greeting(b"CFFI")
@@ -381,13 +390,13 @@ def demo_structures_and_tagged_unions() -> None:
     descriptor = ffi.new("ctd_descriptor *")
     status = lib.ctd_describe_i32(described_values, 6, descriptor)
     show_status("ctd_describe_i32()", status)
-    descriptor_message = ffi.string(descriptor.message).decode("utf-8")
+    descriptor_message = cast(bytes, ffi.string(descriptor.message)).decode("utf-8")
     descriptor_count = descriptor.count
     descriptor_values = list(ffi.unpack(descriptor.values, descriptor_count))
     print(f"descriptor: {descriptor_message!r}, values={descriptor_values}")
 
     static_descriptor = lib.ctd_static_descriptor()
-    static_message = ffi.string(static_descriptor.message).decode("utf-8")
+    static_message = cast(bytes, ffi.string(static_descriptor.message)).decode("utf-8")
     static_count = static_descriptor.count
     static_values = list(ffi.unpack(static_descriptor.values, static_count))
     print(f"static descriptor: {static_message!r}, values={static_values}")
@@ -398,20 +407,20 @@ def demo_structures_and_tagged_unions() -> None:
 
     user_data = ffi.new("int *", 10)
 
-    @ffi.callback("int(int, int, void *)")
     def weighted_add(
         callback_left: int,
         callback_right: int,
-        opaque: ffi.CData,
+        opaque: CffiValue,
     ) -> int:
         weight = ffi.cast("int *", opaque)[0]
-        return callback_left + callback_right * weight
+        return int(callback_left + callback_right * weight)
 
+    weighted_add_callback = ffi.callback("int(int, int, void *)")(weighted_add)
     callback_result = ffi.new("int *")
     status = lib.ctd_apply_callback(
         2,
         3,
-        weighted_add,
+        weighted_add_callback,
         user_data,
         callback_result,
     )
