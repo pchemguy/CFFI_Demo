@@ -155,6 +155,11 @@ typedef int (*ctd_binary_operation)(
     int right
 );
 
+typedef enum ctd_binary_operation_kind {
+    CTD_BINARY_OPERATION_ADD = 0,
+    CTD_BINARY_OPERATION_MULTIPLY = 1
+} ctd_binary_operation_kind;
+
 /*
 ** Opaque handle.
 */
@@ -176,7 +181,6 @@ CTD_API const char *ctd_status_name(ctd_status status);
 ** Scalar operations.
 */
 CTD_API int ctd_add(int a, int b);
-CTD_API int ctd_subtract(int a, int b);
 CTD_API int32_t ctd_negate_i32(int32_t value);
 CTD_API uint64_t ctd_add_u64(uint64_t a, uint64_t b);
 CTD_API double ctd_hypot_squared(double x, double y);
@@ -203,12 +207,6 @@ CTD_API ctd_status ctd_sum_i32(
     const int32_t *values,
     size_t count,
     int64_t *result
-);
-
-CTD_API ctd_status ctd_scale_i32(
-    int32_t *values,
-    size_t count,
-    int32_t factor
 );
 
 CTD_API ctd_status ctd_reverse_i32(
@@ -328,7 +326,7 @@ CTD_API ctd_status ctd_apply_callback(
 );
 
 CTD_API ctd_binary_operation ctd_get_binary_operation(
-    int selector
+    ctd_binary_operation_kind operation_kind
 );
 
 /*
@@ -341,7 +339,6 @@ CTD_API void ctd_global_counter_reset(void);
 ** Opaque counter operations.
 */
 CTD_API ctd_counter *ctd_counter_create(int initial_value);
-CTD_API void ctd_counter_destroy(ctd_counter *counter);
 CTD_API ctd_status ctd_counter_get(
     const ctd_counter *counter,
     int *result
@@ -414,10 +411,6 @@ const char *ctd_status_name(ctd_status status){
 
 int ctd_add(int a, int b){
     return a + b;
-}
-
-int ctd_subtract(int a, int b){
-    return a - b;
 }
 
 int32_t ctd_negate_i32(int32_t value){
@@ -506,24 +499,6 @@ ctd_status ctd_sum_i32(
     }
 
     *result = sum;
-    return CTD_OK;
-}
-
-ctd_status ctd_scale_i32(
-    int32_t *values,
-    size_t count,
-    int32_t factor
-){
-    size_t index;
-
-    if(values == NULL && count != 0){
-        return CTD_ERROR_NULL;
-    }
-
-    for(index = 0; index < count; ++index){
-        values[index] *= factor;
-    }
-
     return CTD_OK;
 }
 
@@ -942,22 +917,22 @@ ctd_status ctd_apply_callback(
     return CTD_OK;
 }
 
-static int ctd_operation_add(int left, int right){
+static int binary_operation_add(int left, int right){
     return left + right;
 }
 
-static int ctd_operation_multiply(int left, int right){
+static int binary_operation_multiply(int left, int right){
     return left * right;
 }
 
 ctd_binary_operation ctd_get_binary_operation(
-    int selector
+    ctd_binary_operation_kind operation_kind
 ){
-    switch(selector){
-        case 0:
-            return ctd_operation_add;
-        case 1:
-            return ctd_operation_multiply;
+    switch(operation_kind){
+        case CTD_BINARY_OPERATION_ADD:
+            return binary_operation_add;
+        case CTD_BINARY_OPERATION_MULTIPLY:
+            return binary_operation_multiply;
         default:
             return NULL;
     }
@@ -983,10 +958,6 @@ ctd_counter *ctd_counter_create(int initial_value){
 
     counter->value = initial_value;
     return counter;
-}
-
-void ctd_counter_destroy(ctd_counter *counter){
-    free(counter);
 }
 
 ctd_status ctd_counter_get(

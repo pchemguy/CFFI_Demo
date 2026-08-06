@@ -25,8 +25,7 @@
 **   declaration explicitly describes an owned return.  Size-query calls may
 **   allow NULL output storage while still requiring a non-NULL size pointer.
 ** - Allocators must not be mixed: ffi.new() memory is released by Python/CFFI;
-**   CTD allocations are released only by ctd_free() or the type-specific CTD
-**   destroy function.  Never use ctd_free() for an opaque handle.
+**   CTD allocations are released only by ctd_free().
 */
 
 /*
@@ -112,6 +111,11 @@ typedef int (*ctd_binary_operation)(
     int right
 );
 
+typedef enum ctd_binary_operation_kind {
+    CTD_BINARY_OPERATION_ADD = 0,
+    CTD_BINARY_OPERATION_MULTIPLY = 1
+} ctd_binary_operation_kind;
+
 /*
 ** Opaque handle.
 */
@@ -132,13 +136,9 @@ CTD_API void ctd_global_counter_reset(void);
 
 /* Recommended canonical pattern catalogue - 2. Scalar and value operations. */
 CTD_API int ctd_add(int a, int b);
-CTD_API int ctd_subtract(int a, int b);
 CTD_API int32_t ctd_negate_i32(int32_t value);
 CTD_API uint64_t ctd_add_u64(uint64_t a, uint64_t b);
 CTD_API double ctd_hypot_squared(double x, double y);
-
-CTD_API int ctd_operation_add(int left, int right);
-CTD_API int ctd_operation_multiply(int left, int right);
 
 /* result: OUT SCALAR; non-NULL; not retained; caller-owned; no size unit. */
 CTD_API ctd_status ctd_divide(
@@ -162,10 +162,6 @@ CTD_API ctd_status ctd_swap_i32(int32_t *a, int32_t *b);
 ** result: OUT SCALAR; non-NULL; not retained; caller-owned; no size unit.
 */
 CTD_API ctd_status ctd_sum_i32(const int32_t *values, size_t count, int64_t *result);
-
-/* values: INOUT ARRAY; NULL only when count is zero; not retained;
-** caller-owned; count unit: int32_t elements. */
-CTD_API ctd_status ctd_scale_i32(int32_t *values, size_t count, int32_t factor);
 
 /* values: INOUT ARRAY; NULL only when count is zero; not retained;
 ** caller-owned; count unit: int32_t elements. */
@@ -287,15 +283,15 @@ CTD_API ctd_status ctd_apply_callback(
 
 /* RETURN: OUT OPAQUE function pointer; nullable; borrowed library-owned static
 ** code; no size unit; must not be freed. */
-CTD_API ctd_binary_operation ctd_get_binary_operation(int selector);
+CTD_API ctd_binary_operation ctd_get_binary_operation(
+    ctd_binary_operation_kind operation_kind
+);
 
 /* Recommended canonical pattern catalogue - 9. Opaque handles and release. */
 /* RETURN: OUT OPAQUE; NULL on failure; retained as handle state; caller-owned
-** after return; no size unit; release with ctd_counter_destroy(). */
+** after return; no size unit; release with ctd_free().  The allocation contains
+** no nested resources and requires no type-specific teardown. */
 CTD_API ctd_counter *ctd_counter_create(int initial_value);
-/* counter: IN OPAQUE; nullable; consumed/released, not retained afterward;
-** caller-owned before call; no size unit. */
-CTD_API void ctd_counter_destroy(ctd_counter *counter);
 /* counter: IN OPAQUE; non-NULL; retained as handle state; caller-owned; no size
 ** unit. result: OUT SCALAR; non-NULL; not retained; caller-owned; no size unit. */
 CTD_API ctd_status ctd_counter_get(const ctd_counter *counter, int *result);
