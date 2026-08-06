@@ -9,25 +9,25 @@
 ** Recommended canonical pattern catalogue
 **
 ** The nine contract families below are ordered from value-only calls through
-** progressively more explicit pointer and lifetime management.  A pointer
+** progressively more explicit pointer and lifetime management. A pointer
 ** profile records DIRECTION, SHAPE, NULLABILITY, RETENTION, OWNERSHIP, and the
-** UNIT used by each associated size.  "Not retained" means that CTD does not
+** UNIT used by each associated size. "Not retained" means that CTD does not
 ** keep the pointer after the call returns.
 **
 ** Shared CFFI ownership rules:
-** - Memory created by ffi.new() is caller-owned.  Keep its owning cdata alive
+** - Memory created by ffi.new() is caller-owned. Keep its owning cdata alive
 **   for every call that uses it; CTD never frees or retains that memory.
 ** - A borrowed C return remains library-owned, must not be passed to
 **   ctd_free(), and is valid only for the lifetime stated by its profile.
 ** - An owned C return is caller-owned after a successful call and must be
 **   released exactly once with the matching CTD release function.
 ** - OUT and INOUT storage is supplied and owned by the caller unless the
-**   declaration explicitly describes an owned return.  Size-query calls may
+**   declaration explicitly describes an owned return. Size-query calls may
 **   allow NULL output storage while still requiring a non-NULL size pointer.
 ** - Allocators must not be mixed: ffi.new() memory is released by Python/CFFI;
 **   CTD allocations are released only by ctd_free().
 ** - Unless a declaration says otherwise, a status-returning function leaves
-**   every caller-provided OUT or INOUT object unchanged on failure.  Size-query
+**   every caller-provided OUT or INOUT object unchanged on failure. Size-query
 **   functions are the exception: their required count/size output is set once
 **   the input has been validated, including on CTD_ERROR_CAPACITY.
 **
@@ -41,7 +41,7 @@
 ** 15 ctd_alloc_sequence_i32; 16,17 ctd_point_add; 18 ctd_point_dot;
 ** 19 ctd_point_translate; 20 ctd_compute_stats_i32;
 ** 21 ctd_default_config; 22 ctd_accumulator_create/add/get/destroy;
-** 23 ctd_utf8_byte_size.  ctd_static_descriptor is the descriptor-structure
+** 23 ctd_utf8_byte_size. ctd_static_descriptor is the descriptor-structure
 ** pattern whose borrowed fields have separate lifetime contracts.
 */
 
@@ -58,7 +58,7 @@ typedef enum ctd_status {
 } ctd_status;
 
 /*
-** Advanced declarations for CFFI introspection examples.  These types enrich
+** Advanced declarations for CFFI introspection examples. These types enrich
 ** the declaration model; graph traversal and Python callback invocation are
 ** deliberately outside the canonical runtime profile.
 */
@@ -217,7 +217,7 @@ CTD_API ctd_status ctd_compute_stats_i32(
 ** buffer: OUT ARRAY; NULL for a size query or zero count; not retained;
 ** caller-owned; capacity unit: int32_t elements.
 ** required_count: OUT SCALAR; non-NULL; not retained; caller-owned; value unit:
-** int32_t elements.  count unit: int32_t elements.
+** int32_t elements. count unit: int32_t elements.
 */
 CTD_API ctd_status ctd_make_sequence_i32(
     int32_t start,
@@ -329,7 +329,7 @@ CTD_API ctd_status ctd_range_apply(
     double *result
 );
 /* values: IN ARRAY; NULL only when count is zero; borrowed by result;
-** caller-owned; count unit: int32_t elements.  Keep the owning cdata alive for
+** caller-owned; count unit: int32_t elements. Keep the owning cdata alive for
 ** every access through result->values.
 ** result: OUT STRUCT; non-NULL; its message is borrowed static storage and its
 ** values member aliases the input while that input remains alive. */
@@ -340,8 +340,8 @@ CTD_API ctd_status ctd_describe_i32(
 );
 
 /* RETURN: OUT DESCRIPTOR STRUCT; non-NULL; borrowed library-owned static
-** lifetime.  The structure, message, and values fields are all static and
-** read-only; count is measured in int32_t elements.  Nothing may be freed. */
+** lifetime. The structure, message, and values fields are all static and
+** read-only; count is measured in int32_t elements. Nothing may be freed. */
 CTD_API const ctd_descriptor *ctd_static_descriptor(void);
 
 /* Advanced callback and returned-function-pointer examples. */
@@ -365,7 +365,7 @@ CTD_API ctd_binary_operation ctd_get_binary_operation(
 
 /* Recommended canonical pattern catalogue - 8. Opaque handles and release. */
 /* RETURN: OUT OPAQUE; NULL on failure; retained as handle state; caller-owned
-** after return; no size unit; release with ctd_free().  The allocation contains
+** after return; no size unit; release with ctd_free(). The allocation contains
 ** no nested resources and requires no type-specific teardown. */
 CTD_API ctd_counter *ctd_counter_create(int initial_value);
 /* counter: IN OPAQUE; non-NULL; retained as handle state; caller-owned; no size
@@ -379,7 +379,7 @@ CTD_API ctd_status ctd_counter_add(ctd_counter *counter, int amount, int *result
 /* A genuinely opaque lifecycle object with a type-specific release operation.
 ** Its representation and owned state are private to ctd.c. */
 /* RETURN: OUT OPAQUE; NULL on failure; retained as handle state; caller-owned
-** after return; no size unit; release with ctd_accumulator_destroy().  Do not
+** after return; no size unit; release with ctd_accumulator_destroy(). Do not
 ** pass this handle to ctd_free() because it owns nested allocated state. */
 CTD_API ctd_accumulator *ctd_accumulator_create(size_t capacity);
 CTD_API ctd_status ctd_accumulator_add(ctd_accumulator *accumulator, int32_t value);
