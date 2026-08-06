@@ -41,8 +41,30 @@ typedef enum ctd_status {
 } ctd_status;
 
 /*
-** A simple structure suitable for passing by value.
+** Advanced declarations for CFFI introspection examples.  These types enrich
+** the declaration model; graph traversal and Python callback invocation are
+** deliberately outside the canonical runtime profile.
 */
+typedef union ctd_number {
+    int64_t i64;
+    double f64;
+} ctd_number;
+
+typedef int (*ctd_binary_callback)(int left, int right, void *user_data);
+typedef int (*ctd_value_predicate)(const ctd_number *value, void *user_data);
+typedef void (*ctd_message_callback)(const char *message, size_t length);
+
+typedef struct ctd_counter ctd_counter;
+typedef struct ctd_accumulator ctd_accumulator;
+typedef struct ctd_graph ctd_graph;
+
+typedef struct ctd_node {
+    int32_t value;
+    struct ctd_node *next;
+    struct ctd_node *child;
+} ctd_node;
+
+/* Primary structure and enum catalogue. */
 typedef struct ctd_point {
     double x;
     double y;
@@ -68,21 +90,6 @@ typedef struct ctd_record {
     double values[3];
 } ctd_record;
 
-/*
-** A structure with no typedef.
-*/
-struct ctd_counter {
-    int value;
-};
-
-/*
-** Tagged union.
-*/
-typedef union ctd_number {
-    int64_t i64;
-    double f64;
-} ctd_number;
-
 typedef enum ctd_number_kind {
     CTD_NUMBER_I64 = 1,
     CTD_NUMBER_F64 = 2
@@ -93,33 +100,26 @@ typedef struct ctd_value {
     ctd_number number;
 } ctd_value;
 
-/*
-** Callback types.  For ctd_binary_callback, user_data is IN OPAQUE; nullable;
-** not retained; caller-owned; no size unit.  The callback itself is an IN
-** OPAQUE callable pointer at its use site; its complete profile appears below.
-*/
-typedef int (*ctd_binary_callback)(
-    int left,
-    int right,
-    void *user_data
-);
+typedef struct ctd_range {
+    double minimum;
+    double maximum;
+} ctd_range;
 
-/* Returned ctd_binary_operation values are OUT OPAQUE function pointers;
-** nullable; borrowed library-owned static code; no size unit. */
-typedef int (*ctd_binary_operation)(
-    int left,
-    int right
-);
+typedef enum ctd_range_policy {
+    CTD_RANGE_REJECT = 0,
+    CTD_RANGE_CLAMP = 1
+} ctd_range_policy;
 
-typedef enum ctd_binary_operation_kind {
-    CTD_BINARY_OPERATION_ADD = 0,
-    CTD_BINARY_OPERATION_MULTIPLY = 1
-} ctd_binary_operation_kind;
+typedef struct ctd_config {
+    ctd_range range;
+    ctd_range_policy policy;
+} ctd_config;
 
-/*
-** Opaque handle.
-*/
-typedef struct ctd_counter ctd_counter;
+typedef struct ctd_descriptor {
+    const char *message;
+    const int32_t *values;
+    size_t count;
+} ctd_descriptor;
 
 /* Recommended canonical pattern catalogue - 1. Globals and status values. */
 CTD_API extern int ctd_global_counter;
@@ -268,26 +268,26 @@ CTD_API ctd_value ctd_value_from_f64(double value);
 ** result: OUT SCALAR; non-NULL; not retained; caller-owned; no size unit. */
 CTD_API ctd_status ctd_value_as_f64(const ctd_value *value, double *result);
 
-/* Recommended canonical pattern catalogue - 8. Callbacks and function pointers. */
-/* callback: IN OPAQUE callable pointer; non-NULL; not retained; caller-owned;
-** no size unit. user_data: IN OPAQUE; nullable; not retained; caller-owned; no
-** size unit. result: OUT SCALAR; non-NULL; not retained; caller-owned; no size
-** unit.  Keep both callback and user_data cdata alive for the call. */
-CTD_API ctd_status ctd_apply_callback(
-    int left,
-    int right,
-    ctd_binary_callback callback,
-    void *user_data,
-    int *result
+/* RETURN: OUT STRUCT; non-NULL; borrowed library-owned static lifetime. */
+CTD_API const ctd_config *ctd_default_config(void);
+/* config: IN STRUCT; non-NULL; not retained; caller-owned; no size unit.
+** result: OUT SCALAR; non-NULL; not retained; caller-owned; no size unit. */
+CTD_API ctd_status ctd_range_apply(
+    const ctd_config *config,
+    double value,
+    double *result
+);
+/* values: IN ARRAY; NULL only when count is zero; borrowed by result and not
+** retained after the call; caller-owned; count unit: int32_t elements.
+** result: OUT STRUCT; non-NULL; its message is borrowed static storage and its
+** values member aliases the input for the duration of the caller's use. */
+CTD_API ctd_status ctd_describe_i32(
+    const int32_t *values,
+    size_t count,
+    ctd_descriptor *result
 );
 
-/* RETURN: OUT OPAQUE function pointer; nullable; borrowed library-owned static
-** code; no size unit; must not be freed. */
-CTD_API ctd_binary_operation ctd_get_binary_operation(
-    ctd_binary_operation_kind operation_kind
-);
-
-/* Recommended canonical pattern catalogue - 9. Opaque handles and release. */
+/* Recommended canonical pattern catalogue - 8. Opaque handles and release. */
 /* RETURN: OUT OPAQUE; NULL on failure; retained as handle state; caller-owned
 ** after return; no size unit; release with ctd_free().  The allocation contains
 ** no nested resources and requires no type-specific teardown. */
