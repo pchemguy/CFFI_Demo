@@ -81,8 +81,7 @@ extern "C" {
 /* Recommended canonical pattern catalogue - 5. Byte buffers. */
 /* Recommended canonical pattern catalogue - 6. Strings. */
 /* Recommended canonical pattern catalogue - 7. Structures and tagged unions. */
-/* Recommended canonical pattern catalogue - 8. Callbacks and function pointers. */
-/* Recommended canonical pattern catalogue - 9. Opaque handles and release. */
+/* Recommended canonical pattern catalogue - 8. Opaque handles and release. */
 
 #include "ctd_api.h"
 

@@ -10,6 +10,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* The counter layout is private; ctd_api.h exposes only its typedef. */
+struct ctd_counter {
+    int value;
+};
+
 /* Recommended canonical pattern catalogue - 1. Globals and status values. */
 CTD_API int ctd_global_counter = 0;
 CTD_API const int ctd_global_constant = 1729;
@@ -519,44 +524,58 @@ CTD_API ctd_status ctd_value_as_f64(const ctd_value *value, double *result) {
     }
 }
 
-/* Recommended canonical pattern catalogue - 8. Callbacks and function pointers. */
-static int binary_operation_add(int left, int right) {
-    return left + right;
+CTD_API const ctd_config *ctd_default_config(void) {
+    static const ctd_config config = {{0.0, 100.0}, CTD_RANGE_CLAMP};
+
+    return &config;
 }
 
-static int binary_operation_multiply(int left, int right) {
-    return left * right;
-}
-
-CTD_API ctd_status ctd_apply_callback(
-    int left,
-    int right,
-    ctd_binary_callback callback,
-    void *user_data,
-    int *result
+CTD_API ctd_status ctd_range_apply(
+    const ctd_config *config,
+    double value,
+    double *result
 ) {
-    if (callback == NULL || result == NULL) {
+    if (config == NULL || result == NULL) {
         return CTD_ERROR_NULL;
     }
 
-    *result = callback(left, right, user_data);
+    if (config->range.minimum > config->range.maximum) {
+        return CTD_ERROR_RANGE;
+    }
+
+    if (config->policy != CTD_RANGE_REJECT && config->policy != CTD_RANGE_CLAMP) {
+        return CTD_ERROR_RANGE;
+    }
+
+    if (value < config->range.minimum || value > config->range.maximum) {
+        if (config->policy == CTD_RANGE_REJECT) {
+            return CTD_ERROR_RANGE;
+        }
+        value = value < config->range.minimum
+            ? config->range.minimum
+            : config->range.maximum;
+    }
+
+    *result = value;
     return CTD_OK;
 }
 
-CTD_API ctd_binary_operation ctd_get_binary_operation(
-    ctd_binary_operation_kind operation_kind
+CTD_API ctd_status ctd_describe_i32(
+    const int32_t *values,
+    size_t count,
+    ctd_descriptor *result
 ) {
-    switch (operation_kind) {
-        case CTD_BINARY_OPERATION_ADD:
-            return binary_operation_add;
-        case CTD_BINARY_OPERATION_MULTIPLY:
-            return binary_operation_multiply;
-        default:
-            return NULL;
+    if (result == NULL || (values == NULL && count != 0)) {
+        return CTD_ERROR_NULL;
     }
+
+    result->message = count == 0 ? "empty sequence" : "integer sequence";
+    result->values = values;
+    result->count = count;
+    return CTD_OK;
 }
 
-/* Recommended canonical pattern catalogue - 9. Opaque handles and release. */
+/* Recommended canonical pattern catalogue - 8. Opaque handles and release. */
 CTD_API ctd_counter *ctd_counter_create(int initial_value) {
     ctd_counter *counter;
 

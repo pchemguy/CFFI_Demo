@@ -59,10 +59,10 @@ def main() -> int:
         },
     )
     print(
-        "binary-operation constants:",
+        "range-policy constants:",
         {
-            "CTD_BINARY_OPERATION_ADD": lib.CTD_BINARY_OPERATION_ADD,
-            "CTD_BINARY_OPERATION_MULTIPLY": lib.CTD_BINARY_OPERATION_MULTIPLY,
+            "CTD_RANGE_REJECT": lib.CTD_RANGE_REJECT,
+            "CTD_RANGE_CLAMP": lib.CTD_RANGE_CLAMP,
         },
     )
     print(f"ctd_global_constant: {lib.ctd_global_constant}")
@@ -312,43 +312,22 @@ def main() -> int:
         f"converted={converted[0]}"
     )
 
-    # Recommended canonical pattern catalogue - 8. Callbacks and function pointers.
-    heading("Callbacks and returned function pointers")
+    config = lib.ctd_default_config()
+    ranged_value = ffi.new("double *")
+    status = lib.ctd_range_apply(config, 125.0, ranged_value)
+    show_status("ctd_range_apply()", status)
+    print(f"default-config clamped value: {ranged_value[0]}")
 
-    user_data = ffi.new("int *", 10)
-
-    @ffi.callback("int(int, int, void *)")
-    def weighted_add(
-        callback_left: int,
-        callback_right: int,
-        opaque: ffi.CData,
-    ) -> int:
-        weight = ffi.cast("int *", opaque)[0]
-        return callback_left + callback_right * weight
-
-    callback_result = ffi.new("int *")
-    status = lib.ctd_apply_callback(
-        2,
-        3,
-        weighted_add,
-        user_data,
-        callback_result,
+    described_values = ffi.new("int32_t[]", [4, 8, 15, 16, 23, 42])
+    descriptor = ffi.new("ctd_descriptor *")
+    status = lib.ctd_describe_i32(described_values, 6, descriptor)
+    show_status("ctd_describe_i32()", status)
+    print(
+        f"descriptor: {c_string(descriptor.message)!r}, "
+        f"values={list(descriptor.values[0:descriptor.count])}"
     )
-    show_status("ctd_apply_callback()", status)
-    print(f"callback result: {callback_result[0]}")
 
-    for selector in (
-        lib.CTD_BINARY_OPERATION_ADD,
-        lib.CTD_BINARY_OPERATION_MULTIPLY,
-        99,
-    ):
-        operation = lib.ctd_get_binary_operation(selector)
-        if operation == ffi.NULL:
-            print(f"ctd_get_binary_operation({selector}): NULL")
-        else:
-            print(f"ctd_get_binary_operation({selector})(6, 7): {operation(6, 7)}")
-
-    # Recommended canonical pattern catalogue - 9. Opaque handles and release.
+    # Recommended canonical pattern catalogue - 8. Opaque handles and release.
     heading("Opaque counter handle")
 
     counter = lib.ctd_counter_create(100)
