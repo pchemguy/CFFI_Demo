@@ -24,7 +24,11 @@ def test_wrapper_builds_load_the_same_valid_cdef() -> None:
 
 
 @pytest.mark.parametrize(
-    "module_name", ["build_ctd_wrapper", "build_ctd_wrapper_embedded"]
+    "module_name",
+    [
+        pytest.param("build_ctd_wrapper", id="dynamic-wrapper"),
+        pytest.param("build_ctd_wrapper_embedded", id="embedded-wrapper"),
+    ],
 )
 def test_builder_imports_from_its_script_directory(module_name: str) -> None:
     builder_directory = build_ctd_wrapper.CDEF_HEADER.parent

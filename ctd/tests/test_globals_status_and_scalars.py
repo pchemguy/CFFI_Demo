@@ -58,21 +58,67 @@ def test_hypot_squared(lib, x: float, y: float, expected: float) -> None:
 
 
 @pytest.mark.parametrize(
-    ("numerator", "denominator", "status", "expected"),
+    ("numerator", "denominator", "expected_status", "expected", "output_changes"),
     [
-        pytest.param(22.0, 7.0, "CTD_OK", 22.0 / 7.0, id="successful"),
-        pytest.param(1.0, 0.0, "CTD_ERROR_DIVIDE_BY_ZERO", 987.25, id="divide-by-zero"),
+        pytest.param(22.0, 7.0, "CTD_OK", 22.0 / 7.0, True, id="fractional"),
+        pytest.param(-9.0, 3.0, "CTD_OK", -3.0, True, id="negative"),
     ],
 )
-def test_divide_preserves_output_on_error(
-    ffi, lib, numerator: float, denominator: float, status: str, expected: float
+def test_divide_success_changes_output(
+    ffi,
+    lib,
+    numerator: float,
+    denominator: float,
+    expected_status: str,
+    expected: float,
+    output_changes: bool,
 ) -> None:
-    result = ffi.new("double *", 987.25)
-    assert lib.ctd_divide(numerator, denominator, result) == getattr(lib, status)
+    sentinel = 987.25
+    result = ffi.new("double *", sentinel)
+    assert lib.ctd_divide(numerator, denominator, result) == getattr(
+        lib, expected_status
+    )
     assert result[0] == pytest.approx(expected)
+    assert (result[0] != sentinel) is output_changes
 
 
-@pytest.mark.parametrize("mode", ["direct-assignment", "library-mutation"])
+@pytest.mark.parametrize(
+    ("numerator", "denominator", "expected_status", "expected", "output_changes"),
+    [
+        pytest.param(
+            1.0,
+            0.0,
+            "CTD_ERROR_DIVIDE_BY_ZERO",
+            987.25,
+            False,
+            id="divide-by-zero",
+        ),
+    ],
+)
+def test_divide_failure_preserves_output(
+    ffi,
+    lib,
+    numerator: float,
+    denominator: float,
+    expected_status: str,
+    expected: float,
+    output_changes: bool,
+) -> None:
+    sentinel = 987.25
+    result = ffi.new("double *", sentinel)
+    status = lib.ctd_divide(numerator, denominator, result)
+    assert status == getattr(lib, expected_status)
+    assert result[0] == pytest.approx(expected)
+    assert (result[0] != sentinel) is output_changes
+
+
+@pytest.mark.parametrize(
+    "mode",
+    [
+        pytest.param("direct-assignment", id="direct-assignment"),
+        pytest.param("library-mutation", id="library-mutation"),
+    ],
+)
 def test_mutable_global_counter_is_isolated(lib, reset_globals, mode: str) -> None:
     assert lib.ctd_global_counter == 0
     if mode == "direct-assignment":
