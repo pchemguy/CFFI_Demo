@@ -244,10 +244,6 @@ CTD_API ctd_status ctd_compute_stats_i32(
         return CTD_ERROR_RANGE;
     }
 
-    if (count > (size_t)INT64_MAX) {
-        return CTD_ERROR_RANGE;
-    }
-
     minimum = values[0];
     maximum = values[0];
     sum = values[0];
@@ -383,7 +379,7 @@ CTD_API ctd_status ctd_copy_bytes(
         return CTD_ERROR_CAPACITY;
     }
 
-    memcpy(destination, source, source_count);
+    memmove(destination, source, source_count);
     return CTD_OK;
 }
 
@@ -413,7 +409,7 @@ CTD_API ctd_status ctd_checksum_bytes(
         return CTD_ERROR_NULL;
     }
     for (index = 0; index < length; ++index) {
-        checksum = (checksum + bytes[index]) & UINT32_C(0xffffffff);
+        checksum += bytes[index];
     }
     *result = checksum;
     return CTD_OK;
@@ -467,9 +463,9 @@ CTD_API char *ctd_alloc_greeting(const char *name) {
         return NULL;
     }
 
-    memcpy(result, prefix, prefix_size);
-    memcpy(result + prefix_size, name, name_size);
-    memcpy(result + prefix_size + name_size, suffix, suffix_size);
+    memmove(result, prefix, prefix_size);
+    memmove(result + prefix_size, name, name_size);
+    memmove(result + prefix_size + name_size, suffix, suffix_size);
     result[total_size - 1] = '\0';
 
     return result;
@@ -522,7 +518,7 @@ CTD_API ctd_status ctd_copy_string(
         return CTD_ERROR_CAPACITY;
     }
 
-    memcpy(destination, source, size);
+    memmove(destination, source, size);
     return CTD_OK;
 }
 
@@ -546,10 +542,6 @@ CTD_API ctd_point ctd_point_add(ctd_point a, ctd_point b) {
 }
 
 CTD_API double ctd_point_dot(const ctd_point *a, const ctd_point *b) {
-    if (a == NULL || b == NULL) {
-        return 0.0;
-    }
-
     return a->x * b->x + a->y * b->y;
 }
 
@@ -584,7 +576,7 @@ CTD_API ctd_status ctd_record_initialize(
     record->id = id;
 
     memset(record->name, 0, sizeof(record->name));
-    memcpy(record->name, name, name_size);
+    memmove(record->name, name, name_size);
 
     record->values[0] = 1.0;
     record->values[1] = 2.0;
@@ -780,7 +772,7 @@ CTD_API ctd_status ctd_counter_add(ctd_counter *counter, int amount, int *result
 CTD_API ctd_accumulator *ctd_accumulator_create(size_t capacity) {
     ctd_accumulator *accumulator;
 
-    if (capacity > SIZE_MAX / sizeof(*accumulator->values)) {
+    if (capacity > SIZE_MAX / sizeof(int32_t)) {
         return NULL;
     }
     accumulator = (ctd_accumulator *)malloc(sizeof(*accumulator));

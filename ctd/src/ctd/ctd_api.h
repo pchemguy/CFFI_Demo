@@ -6,7 +6,13 @@
 #define CTD_API_H
 
 /*
-** Recommended canonical pattern catalogue
+** This declaration catalogue is included by ctd.h, which supplies
+** CTD_API and CTD_DATA_API, and is not an independent C client header.
+**
+
+
+
+** Canonical API pattern catalogue:
 **
 ** The nine contract families below are ordered from value-only calls through
 ** progressively more explicit pointer and lifetime management. A pointer
@@ -167,8 +173,14 @@ CTD_API void ctd_globals_reset(void);
 /* Recommended canonical pattern catalogue - 2. Scalar and value operations. */
 /* Saturates at INT_MIN/INT_MAX when the mathematical sum is out of range. */
 CTD_API int ctd_add(int a, int b);
+/* Saturates at INT32_MAX when value is INT32_MIN. */
 CTD_API int32_t ctd_negate_i32(int32_t value);
 CTD_API uint64_t ctd_add_u64(uint64_t a, uint64_t b);
+/*
+** Computes x*x + y*y using ordinary C double arithmetic. NaNs and infinities
+** propagate according to the implementation's floating-point environment;
+** finite inputs may overflow to positive infinity.
+*/
 CTD_API double ctd_hypot_squared(double x, double y);
 
 /* result: OUT SCALAR; non-NULL; not retained; caller-owned; no size unit. */
