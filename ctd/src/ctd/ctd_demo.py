@@ -65,15 +65,30 @@ def main() -> int:
             "CTD_RANGE_CLAMP": lib.CTD_RANGE_CLAMP,
         },
     )
-    print(f"ctd_global_constant: {lib.ctd_global_constant}")
+    library_name = ffi.string(lib.ctd_library_name).decode("utf-8")
+    print(f"ctd_library_name: {library_name!r}")
+    print(
+        "read-only numeric constants:",
+        {
+            "ctd_max_supported_point_count": lib.ctd_max_supported_point_count,
+            "ctd_numeric_epsilon": lib.ctd_numeric_epsilon,
+        },
+    )
+    print(
+        "ctd_origin_point fields:",
+        {"x": lib.ctd_origin_point.x, "y": lib.ctd_origin_point.y},
+    )
 
-    lib.ctd_global_counter_reset()
+    lib.ctd_globals_reset()
     print(f"ctd_global_counter after reset: {lib.ctd_global_counter}")
     lib.ctd_global_counter = 40
     print(f"ctd_global_counter after direct assignment: {lib.ctd_global_counter}")
     print(f"ctd_global_counter_increment(): {lib.ctd_global_counter_increment()}")
     print(f"ctd_global_counter now: {lib.ctd_global_counter}")
-    lib.ctd_global_counter_reset()
+    lib.ctd_global_last_status = lib.CTD_ERROR_RANGE
+    print(f"ctd_global_last_status after assignment: {lib.ctd_global_last_status}")
+    lib.ctd_global_scale = 2.5
+    print(f"ctd_global_scale after assignment: {lib.ctd_global_scale}")
 
     heading("Status-name lookup")
 
@@ -327,6 +342,41 @@ def main() -> int:
         f"values={list(descriptor.values[0:descriptor.count])}"
     )
 
+    heading("Advanced callbacks and function pointers")
+
+    user_data = ffi.new("int *", 10)
+
+    @ffi.callback("int(int, int, void *)")
+    def weighted_add(
+        callback_left: int,
+        callback_right: int,
+        opaque: ffi.CData,
+    ) -> int:
+        weight = ffi.cast("int *", opaque)[0]
+        return callback_left + callback_right * weight
+
+    callback_result = ffi.new("int *")
+    status = lib.ctd_apply_callback(
+        2,
+        3,
+        weighted_add,
+        user_data,
+        callback_result,
+    )
+    show_status("ctd_apply_callback()", status)
+    print(f"callback result: {callback_result[0]}")
+
+    for selector in (
+        lib.CTD_BINARY_OPERATION_ADD,
+        lib.CTD_BINARY_OPERATION_MULTIPLY,
+        99,
+    ):
+        operation = lib.ctd_get_binary_operation(selector)
+        if operation == ffi.NULL:
+            print(f"ctd_get_binary_operation({selector}): NULL")
+        else:
+            print(f"ctd_get_binary_operation({selector})(6, 7): {operation(6, 7)}")
+
     # Recommended canonical pattern catalogue - 8. Opaque handles and release.
     heading("Opaque counter handle")
 
@@ -351,6 +401,16 @@ def main() -> int:
 
     lib.ctd_free(ffi.NULL)
     print("ctd_free(NULL): completed")
+
+    lib.ctd_globals_reset()
+    print(
+        "mutable globals restored:",
+        {
+            "counter": lib.ctd_global_counter,
+            "last_status": lib.ctd_global_last_status,
+            "scale": lib.ctd_global_scale,
+        },
+    )
 
     return 0
 

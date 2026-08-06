@@ -60,6 +60,14 @@
 
 #endif
 
+/* Global declarations need external linkage in API builds but must remain
+** internal alongside CTD_API definitions in production-style builds. */
+#if defined(CTD_C_API) || defined(CTD_C_API_DEFAULT)
+#  define CTD_DATA_API CTD_API extern
+#else
+#  define CTD_DATA_API static
+#endif
+
 /*----------------------------- API Declaration -----------------------------*/
 
 
