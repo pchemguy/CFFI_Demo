@@ -5,20 +5,27 @@ import pytest
 
 
 @pytest.mark.parametrize(
-    ("pointer", "count", "expected_status", "expected"),
+    ("pointer", "count", "expected_status", "expected", "output_changes"),
     [
-        pytest.param("null", 0, "CTD_OK", 0, id="null-zero-count"),
-        pytest.param("null", 1, "CTD_ERROR_NULL", 777, id="null-nonzero-count"),
-        pytest.param("array", 3, "CTD_OK", 6, id="non-null-nonzero-count"),
+        pytest.param("null", 0, "CTD_OK", 0, True, id="null-zero-count"),
+        pytest.param("null", 1, "CTD_ERROR_NULL", 777, False, id="null-nonzero-count"),
+        pytest.param("array", 3, "CTD_OK", 6, True, id="non-null-nonzero-count"),
     ],
 )
 def test_sum_nullable_pointer_contract(
-    ffi, lib, pointer: str, count: int, expected_status: str, expected: int
+    ffi,
+    lib,
+    pointer: str,
+    count: int,
+    expected_status: str,
+    expected: int,
+    output_changes: bool,
 ) -> None:
     values = ffi.NULL if pointer == "null" else ffi.new("int32_t[]", [1, 2, 3])
     result = ffi.new("int64_t *", 777)
     assert lib.ctd_sum_i32(values, count, result) == getattr(lib, expected_status)
     assert result[0] == expected
+    assert (result[0] != 777) is output_changes
 
 
 @pytest.mark.parametrize(
@@ -44,22 +51,32 @@ def test_scale_overflow_does_not_partially_modify_array(ffi, lib) -> None:
 
 
 @pytest.mark.parametrize(
-    ("capacity", "expected_status", "expected_buffer"),
+    ("capacity", "size_query", "expected_status", "storage_written"),
     [
-        pytest.param(3, "CTD_ERROR_CAPACITY", [777] * 5, id="below-required"),
-        pytest.param(4, "CTD_OK", [10, 11, 12, 13, 777], id="equal-required"),
-        pytest.param(5, "CTD_OK", [10, 11, 12, 13, 777], id="above-required"),
+        pytest.param(0, True, "CTD_ERROR_CAPACITY", False, id="size-query"),
+        pytest.param(3, False, "CTD_ERROR_CAPACITY", False, id="one-short"),
+        pytest.param(4, False, "CTD_OK", True, id="exact-capacity"),
+        pytest.param(5, False, "CTD_OK", True, id="extra-capacity"),
     ],
 )
-def test_sequence_capacity_is_all_or_nothing(
-    ffi, lib, capacity: int, expected_status: str, expected_buffer: list[int]
+def test_sequence_capacity_contract(
+    ffi,
+    lib,
+    capacity: int,
+    size_query: bool,
+    expected_status: str,
+    storage_written: bool,
 ) -> None:
-    buffer = ffi.new("int32_t[]", [777] * 5)
+    sentinel = [777] * 5
+    buffer = ffi.NULL if size_query else ffi.new("int32_t[]", sentinel)
     required = ffi.new("size_t *", 999)
     status = lib.ctd_make_sequence_i32(10, 4, buffer, capacity, required)
     assert status == getattr(lib, expected_status)
     assert required[0] == 4
-    assert list(buffer) == expected_buffer
+    if not size_query:
+        expected = [10, 11, 12, 13, 777] if storage_written else sentinel
+        assert list(buffer) == expected
+        assert (list(buffer) != sentinel) is storage_written
 
 
 @pytest.mark.parametrize(
@@ -77,13 +94,32 @@ def test_byte_checksum(ffi, lib, payload: bytes, expected: int) -> None:
     assert result[0] == expected
 
 
-def test_copy_bytes_capacity_failure_does_not_write(ffi, lib) -> None:
+@pytest.mark.parametrize(
+    ("capacity", "size_query", "expected_status", "storage_written"),
+    [
+        pytest.param(0, True, "CTD_ERROR_CAPACITY", False, id="size-query"),
+        pytest.param(3, False, "CTD_ERROR_CAPACITY", False, id="one-short"),
+        pytest.param(4, False, "CTD_OK", True, id="exact-capacity"),
+        pytest.param(5, False, "CTD_OK", True, id="extra-capacity"),
+    ],
+)
+def test_copy_bytes_capacity_contract(
+    ffi,
+    lib,
+    capacity: int,
+    size_query: bool,
+    expected_status: str,
+    storage_written: bool,
+) -> None:
     source = ffi.new("uint8_t[]", b"abcd")
-    destination = ffi.new("uint8_t[]", b"XXXXX")
+    sentinel = b"XXXXX"
+    destination = ffi.NULL if size_query else ffi.new("uint8_t[]", sentinel)
     required = ffi.new("size_t *", 999)
-    assert (
-        lib.ctd_copy_bytes(source, 4, destination, 3, required)
-        == lib.CTD_ERROR_CAPACITY
-    )
+    status = lib.ctd_copy_bytes(source, 4, destination, capacity, required)
+    assert status == getattr(lib, expected_status)
     assert required[0] == 4
-    assert bytes(ffi.buffer(destination, 5)) == b"XXXXX"
+    if not size_query:
+        expected = b"abcdX" if storage_written else sentinel
+        actual = bytes(ffi.buffer(destination, len(sentinel)))
+        assert actual == expected
+        assert (actual != sentinel) is storage_written
