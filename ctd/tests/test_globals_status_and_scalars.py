@@ -4,6 +4,19 @@ from __future__ import annotations
 import pytest
 
 
+def test_enum_values(lib) -> None:
+    expected_values = {
+        "CTD_OK": 0,
+        "CTD_ERROR_NULL": 1,
+        "CTD_ERROR_RANGE": 2,
+        "CTD_ERROR_CAPACITY": 3,
+        "CTD_ERROR_ALLOCATION": 4,
+        "CTD_ERROR_DIVIDE_BY_ZERO": 5,
+    }
+
+    assert {name: getattr(lib, name) for name in expected_values} == expected_values
+
+
 @pytest.mark.parametrize(
     ("constant", "expected"),
     [
@@ -127,3 +140,23 @@ def test_mutable_global_counter_is_isolated(lib, reset_globals, mode: str) -> No
     else:
         assert lib.ctd_global_counter_increment() == 1
         assert lib.ctd_global_counter == 1
+
+
+def test_constants(ffi, lib) -> None:
+    assert lib.ctd_max_supported_point_count == 1024
+    assert lib.ctd_numeric_epsilon == pytest.approx(1.0e-12)
+    assert ffi.string(lib.ctd_library_name) == b"CTD"
+    assert lib.ctd_origin_point.x == pytest.approx(0.0)
+    assert lib.ctd_origin_point.y == pytest.approx(0.0)
+
+
+def test_globals_reset_restores_all_defaults(lib) -> None:
+    lib.ctd_global_counter = 41
+    lib.ctd_global_last_status = lib.CTD_ERROR_RANGE
+    lib.ctd_global_scale = 2.5
+
+    lib.ctd_globals_reset()
+
+    assert lib.ctd_global_counter == 0
+    assert lib.ctd_global_last_status == lib.CTD_OK
+    assert lib.ctd_global_scale == pytest.approx(1.0)
