@@ -28,7 +28,7 @@ else:
 
 C_MACROS = [
     (f"{PROGRAM_NAME.upper()}_C_API", None),
-    (f"{PROGRAM_NAME.upper()}_BUILD_{'EXE' if DYNAMIC else 'LIB'}", None),
+    (f"{PROGRAM_NAME.upper()}_{'USE_LIB' if DYNAMIC else 'BUILD_LIB'}", None),
 ]
 
 EXTRA_COMPILE_ARGS = []

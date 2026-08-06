@@ -20,11 +20,23 @@
 ** | Defines                       | `CTD_API`                                         |
 ** | ----------------------------- | ------------------------------------------------- |
 ** | `CTD_C_API` + `CTD_BUILD_LIB` | exported DLL/shared-library symbol                |
-** | `CTD_C_API` + `CTD_BUILD_EXE` | imported DLL symbol on Windows; default elsewhere |
+** | `CTD_C_API` + `CTD_USE_LIB`   | imported DLL symbol on Windows; default elsewhere |
 ** | `CTD_C_API_DEFAULT`           | default declaration                               |
 ** | none                          | `static`                                          |
 ** ```
 */
+
+#if defined(CTD_BUILD_LIB) && defined(CTD_USE_LIB)
+#  error "CTD_BUILD_LIB and CTD_USE_LIB are mutually exclusive"
+#endif
+
+#if defined(CTD_C_API) && defined(CTD_C_API_DEFAULT)
+#  error "CTD_C_API and CTD_C_API_DEFAULT are mutually exclusive"
+#endif
+
+#if !defined(CTD_C_API) && (defined(CTD_BUILD_LIB) || defined(CTD_USE_LIB))
+#  define CTD_API
+#endif
 
 #if defined(CTD_C_API)
 
@@ -38,7 +50,7 @@
 #      define CTD_API
 #    endif
 
-#  elif defined(CTD_BUILD_EXE)
+#  elif defined(CTD_USE_LIB)
 
 #    if defined(_WIN32)
 #      define CTD_API __declspec(dllimport)
@@ -47,7 +59,7 @@
 #    endif
 
 #  else
-#    error "CTD_C_API requires CTD_BUILD_LIB or CTD_BUILD_EXE"
+#    error "CTD_C_API requires CTD_BUILD_LIB or CTD_USE_LIB"
 #  endif
 
 #elif defined(CTD_C_API_DEFAULT)
@@ -59,6 +71,7 @@
 #  define CTD_API static
 
 #endif
+
 
 /* Global declarations need external linkage in API builds but must remain
 ** internal alongside CTD_API definitions in production-style builds. */
