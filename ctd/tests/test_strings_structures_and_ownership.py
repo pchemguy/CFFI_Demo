@@ -19,34 +19,74 @@ def copy_descriptor(ffi, descriptor) -> tuple[bytes, list[int]]:
 
 
 @pytest.mark.parametrize(
-    ("initial", "capacity", "status", "expected"),
+    ("initial", "capacity", "expected"),
     [
-        pytest.param(b"mixed Case", 11, "CTD_OK", b"MIXED CASE", id="ascii-lowercase"),
-        pytest.param(b"UPPER", 6, "CTD_OK", b"UPPER", id="already-uppercase"),
-        pytest.param(b"123", 4, "CTD_OK", b"123", id="digits"),
-        pytest.param(b"", 1, "CTD_OK", b"", id="empty"),
-        pytest.param(
-            b"lower", 5, "CTD_ERROR_CAPACITY", b"lower", id="unterminated-capacity"
-        ),
+        pytest.param(b"mixed Case", 11, b"MIXED CASE", id="ascii-lowercase"),
+        pytest.param(b"UPPER", 6, b"UPPER", id="already-uppercase"),
+        pytest.param(b"123", 4, b"123", id="digits"),
+        pytest.param(b"", 1, b"", id="empty"),
     ],
 )
-def test_ascii_upper(
-    ffi, lib, initial: bytes, capacity: int, status: str, expected: bytes
+def test_ascii_upper_success(
+    ffi, lib, initial: bytes, capacity: int, expected: bytes
 ) -> None:
     storage = ffi.new("char[]", initial + b"\0")
-    assert lib.ctd_ascii_upper(storage, capacity) == getattr(lib, status)
+    assert lib.ctd_ascii_upper(storage, capacity) == lib.CTD_OK
     assert bytes(ffi.buffer(storage, len(initial))) == expected
 
 
-def test_copy_string_capacity_failure_does_not_write(ffi, lib) -> None:
-    destination = ffi.new("char[]", b"XXXXXXXX")
+@pytest.mark.parametrize(
+    ("initial", "capacity", "expected_status", "storage_written"),
+    [
+        pytest.param(
+            b"lower", 5, "CTD_ERROR_CAPACITY", False, id="unterminated-capacity"
+        ),
+    ],
+)
+def test_ascii_upper_failure_preserves_storage(
+    ffi,
+    lib,
+    initial: bytes,
+    capacity: int,
+    expected_status: str,
+    storage_written: bool,
+) -> None:
+    storage = ffi.new("char[]", initial + b"\0")
+    before = bytes(ffi.buffer(storage, len(initial)))
+    assert lib.ctd_ascii_upper(storage, capacity) == getattr(lib, expected_status)
+    after = bytes(ffi.buffer(storage, len(initial)))
+    assert after == initial
+    assert (after != before) is storage_written
+
+
+@pytest.mark.parametrize(
+    ("capacity", "size_query", "expected_status", "storage_written"),
+    [
+        pytest.param(0, True, "CTD_ERROR_CAPACITY", False, id="size-query"),
+        pytest.param(5, False, "CTD_ERROR_CAPACITY", False, id="one-short"),
+        pytest.param(6, False, "CTD_OK", True, id="exact-capacity"),
+        pytest.param(7, False, "CTD_OK", True, id="extra-capacity"),
+    ],
+)
+def test_copy_string_capacity_contract(
+    ffi,
+    lib,
+    capacity: int,
+    size_query: bool,
+    expected_status: str,
+    storage_written: bool,
+) -> None:
+    sentinel = b"XXXXXXXX"
+    destination = ffi.NULL if size_query else ffi.new("char[]", sentinel)
     required = ffi.new("size_t *", 999)
-    assert (
-        lib.ctd_copy_string(b"hello", destination, 5, required)
-        == lib.CTD_ERROR_CAPACITY
-    )
+    status = lib.ctd_copy_string(b"hello", destination, capacity, required)
+    assert status == getattr(lib, expected_status)
     assert required[0] == 6
-    assert bytes(ffi.buffer(destination, 8)) == b"XXXXXXXX"
+    if not size_query:
+        expected = b"hello\0XX" if storage_written else sentinel
+        actual = bytes(ffi.buffer(destination, len(sentinel)))
+        assert actual == expected
+        assert (actual != sentinel) is storage_written
 
 
 @pytest.mark.parametrize(
@@ -69,28 +109,99 @@ def test_point_operations(ffi, lib, left, right, expected_sum, expected_dot) -> 
 
 
 @pytest.mark.parametrize(
-    ("kind", "value", "expected_status", "expected"),
+    ("values", "expected_minimum", "expected_maximum", "expected_sum", "expected_mean"),
     [
-        pytest.param("i64", -42, "CTD_OK", -42.0, id="valid-i64"),
-        pytest.param("f64", 3.25, "CTD_OK", 3.25, id="valid-f64"),
-        pytest.param("invalid", 0, "CTD_ERROR_RANGE", 123.5, id="invalid-discriminant"),
+        pytest.param([1, 2, 3, 4], 1, 4, 10, 2.5, id="ascending"),
+        pytest.param([-5, 10, -1], -5, 10, 4, 4.0 / 3.0, id="mixed-sign"),
+        pytest.param([7], 7, 7, 7, 7.0, id="singleton"),
     ],
 )
-def test_tagged_union_discriminants(
-    ffi, lib, kind, value, expected_status, expected
+def test_compute_stats_success(
+    ffi,
+    lib,
+    values: list[int],
+    expected_minimum: int,
+    expected_maximum: int,
+    expected_sum: int,
+    expected_mean: float,
 ) -> None:
+    source = ffi.new("int32_t[]", values)
+    result = ffi.new("ctd_stats *", {"count": 999, "mean": 987.25})
+    assert lib.ctd_compute_stats_i32(source, len(values), result) == lib.CTD_OK
+    assert result.count == len(values)
+    assert result.minimum == expected_minimum
+    assert result.maximum == expected_maximum
+    assert result.sum == expected_sum
+    assert result.mean == pytest.approx(expected_mean)
+
+
+@pytest.mark.parametrize(
+    ("values", "count", "expected_status", "output_changes"),
+    [
+        pytest.param(None, 1, "CTD_ERROR_NULL", False, id="null-values"),
+        pytest.param([], 0, "CTD_ERROR_RANGE", False, id="zero-count"),
+    ],
+)
+def test_compute_stats_failure_preserves_output(
+    ffi,
+    lib,
+    values: list[int] | None,
+    count: int,
+    expected_status: str,
+    output_changes: bool,
+) -> None:
+    source = ffi.NULL if values is None else ffi.new("int32_t[]", values)
+    sentinel = {"count": 999, "minimum": -99, "maximum": 99, "sum": 777, "mean": 987.25}
+    result = ffi.new("ctd_stats *", sentinel)
+    assert lib.ctd_compute_stats_i32(source, count, result) == getattr(
+        lib, expected_status
+    )
+    actual = {
+        "count": result.count,
+        "minimum": result.minimum,
+        "maximum": result.maximum,
+        "sum": result.sum,
+        "mean": result.mean,
+    }
+    assert actual == pytest.approx(sentinel)
+    assert (actual != sentinel) is output_changes
+
+
+@pytest.mark.parametrize(
+    ("kind", "value", "expected"),
+    [
+        pytest.param("i64", -42, -42.0, id="i64"),
+        pytest.param("f64", 3.25, 3.25, id="f64"),
+    ],
+)
+def test_tagged_union_conversions(ffi, lib, kind, value, expected) -> None:
     if kind == "i64":
         tagged = lib.ctd_value_from_i64(value)
     elif kind == "f64":
         tagged = lib.ctd_value_from_f64(value)
-    else:
-        tagged = lib.ctd_value_from_i64(value)
-        tagged.kind = 999
     result = ffi.new("double *", 123.5)
+    assert lib.ctd_value_as_f64(ffi.addressof(tagged), result) == lib.CTD_OK
+    assert result[0] == pytest.approx(expected)
+
+
+@pytest.mark.parametrize(
+    ("kind", "expected_status", "expected", "output_changes"),
+    [
+        pytest.param(999, "CTD_ERROR_RANGE", 123.5, False, id="invalid-discriminant"),
+    ],
+)
+def test_tagged_union_conversion_failure_preserves_output(
+    ffi, lib, kind: int, expected_status: str, expected: float, output_changes: bool
+) -> None:
+    tagged = lib.ctd_value_from_i64(0)
+    tagged.kind = kind
+    sentinel = 123.5
+    result = ffi.new("double *", sentinel)
     assert lib.ctd_value_as_f64(ffi.addressof(tagged), result) == getattr(
         lib, expected_status
     )
     assert result[0] == pytest.approx(expected)
+    assert (result[0] != sentinel) is output_changes
 
 
 def test_descriptor_helper_copies_borrowed_nested_data(ffi, lib) -> None:

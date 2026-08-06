@@ -3,27 +3,32 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Iterator
+from importlib import import_module
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
 CTD_SOURCE = Path(__file__).parents[1] / "src" / "ctd"
 sys.path.insert(0, str(CTD_SOURCE))
 
-from _ctd_wrapper import ffi as wrapper_ffi  # noqa: E402
-from _ctd_wrapper import lib as wrapper_lib  # noqa: E402
+
+@pytest.fixture(scope="session")
+def wrapper_module() -> ModuleType:
+    """Import the generated extension only when a native fixture needs it."""
+    return import_module("_ctd_wrapper")
 
 
 @pytest.fixture
-def ffi():
+def ffi(wrapper_module):
     """Return the generated wrapper's CFFI interface."""
-    return wrapper_ffi
+    return wrapper_module.ffi
 
 
 @pytest.fixture
-def lib():
+def lib(wrapper_module):
     """Return the generated wrapper's CTD library interface."""
-    return wrapper_lib
+    return wrapper_module.lib
 
 
 @pytest.fixture
