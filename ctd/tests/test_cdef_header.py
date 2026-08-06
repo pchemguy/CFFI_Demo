@@ -27,8 +27,16 @@ def test_builder_loads_complete_valid_cdef(builder: ModuleType) -> None:
         "typedef enum ctd_status {",
         "typedef struct ctd_point {",
         "int ctd_global_counter;",
+        "typedef union ctd_number {",
         "typedef int (*ctd_binary_callback)(int left, int right, void *user_data);",
+        "typedef int (*ctd_binary_operation)(int left, int right);",
+        "typedef enum ctd_binary_operation_kind {",
+        "typedef int (*ctd_value_predicate)(const ctd_number *value, void *user_data);",
+        "typedef void (*ctd_message_callback)(const char *message, size_t length);",
+        "typedef struct ctd_counter ctd_counter;",
         "typedef struct ctd_accumulator ctd_accumulator;",
+        "typedef struct ctd_graph ctd_graph;",
+        "typedef struct ctd_node {",
         "int ctd_add(int a, int b);",
     ]
     for declaration in representative_declarations:

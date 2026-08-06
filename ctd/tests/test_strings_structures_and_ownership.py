@@ -18,6 +18,12 @@ def copy_descriptor(ffi, descriptor) -> tuple[bytes, list[int]]:
     )
 
 
+def copy_node(ffi, node) -> tuple[int, object | None, object | None] | None:
+    if node == ffi.NULL:
+        return None
+    return node.value, copy_node(ffi, node.next), copy_node(ffi, node.child)
+
+
 @pytest.mark.parametrize(
     ("initial", "capacity", "expected"),
     [
@@ -211,6 +217,23 @@ def test_descriptor_helper_copies_borrowed_nested_data(ffi, lib) -> None:
     )
 
 
+def test_recursive_node_descriptor_copy(ffi) -> None:
+    child = ffi.new("ctd_node *", {"value": 3})
+    tail = ffi.new("ctd_node *", {"value": 2, "child": child})
+    root = ffi.new("ctd_node *", {"value": 1, "next": tail})
+
+    assert copy_node(ffi, root) == (1, (2, None, (3, None, None)), None)
+
+
+def test_borrowed_sequence_is_copied_to_python_storage(ffi, lib) -> None:
+    count = ffi.new("size_t *")
+    borrowed = lib.ctd_borrow_sequence_i32(count)
+
+    assert borrowed != ffi.NULL
+    copied = unpack_i32(ffi, borrowed, count[0])
+    assert copied == [2, 3, 5, 7, 11]
+
+
 def test_owned_greeting_uses_explicit_try_finally(ffi, lib) -> None:
     greeting = lib.ctd_alloc_greeting(b"Pytest")
     assert greeting != ffi.NULL
@@ -229,6 +252,19 @@ def test_counter_handle_fixture(ffi, lib, counter_handle) -> None:
     result = ffi.new("int *", -999)
     assert lib.ctd_counter_add(counter_handle, 5, result) == lib.CTD_OK
     assert result[0] == 15
+
+
+def test_accumulator_opaque_handle_lifecycle(ffi, lib) -> None:
+    accumulator = lib.ctd_accumulator_create(2)
+    assert accumulator != ffi.NULL
+    try:
+        assert lib.ctd_accumulator_add(accumulator, 20) == lib.CTD_OK
+        assert lib.ctd_accumulator_add(accumulator, 22) == lib.CTD_OK
+        result = ffi.new("int64_t *", -999)
+        assert lib.ctd_accumulator_get(accumulator, result) == lib.CTD_OK
+        assert result[0] == 42
+    finally:
+        lib.ctd_accumulator_destroy(accumulator)
 
 
 def test_null_handle_failure_preserves_output(ffi, lib) -> None:
