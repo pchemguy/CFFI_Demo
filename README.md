@@ -1,4 +1,4 @@
-# Direct C API testing with Pytest and CFFI
+# Direct C API Testing with Pytest and CFFI
 
 ## Project objective
 
