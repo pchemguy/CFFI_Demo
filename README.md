@@ -365,10 +365,50 @@ Run `python ctd/src/ctd/ctd_introspect.py` from the repository root at the corre
 
 The following prompt is intended for a coding agent when this repository is mounted at `/cffi-ref` as a read-only reference:
 
-> Use `/cffi-ref` as the reference implementation for designing testable C APIs and creating CFFI/Pytest tests. First inspect `/cffi-ref/AGENTS.md`, `/cffi-ref/README.md`, `/cffi-ref/ctd/src/ctd/ctd_api.h`, `/cffi-ref/ctd/src/ctd/ctd.h`, and `/cffi-ref/ctd/src/ctd/ctd.c`, then compare every relevant declaration and implementation with `/cffi-ref/ctd/tests/conftest.py` and the applicable `/cffi-ref/ctd/tests/test_*.py` modules. Do not infer behavior from test names or copy examples without tracing the C contract.  
-> 
-> **Testability design:** preserve the split-header pattern: keep mechanically transformable, dual-use API declarations in `ctd_api.h`; keep C-only macros, definitions, and developer-facing includes in `ctd.h`; and keep behavior in `ctd.c`. For production-internal functions that require direct test access, apply a configurable `CTD_API`-like macro consistently to both declaration and definition so production builds retain internal linkage while dedicated test builds export the symbol. Do not permanently make private functions public, duplicate CDEF declarations by hand, or confuse `cdef()` parsing with C preprocessing. Preserve and validate both the dynamically linked and embedded-source wrapper modes.
-> 
-> **Test creation:** derive tests from the actual C contract and cover success, boundary, and failure behavior with descriptive explicit parameter IDs. Assert status codes, values, side effects, and failure atomicity; initialize outputs with sentinels and prove that documented failures do not partially modify them. Use fixtures with deterministic teardown for mutable globals and owned opaque handles. Run `python -m pytest --collect-only` and inspect node IDs, diagnose with focused modules, then run the full configured suite against freshly built dynamic and embedded wrappers in separate Python processes.
-> 
-> CTD's reference patterns include fixed-width signed and unsigned scalars; enums and status returns; globals and constants; nullable `IN`, `OUT`, and `INOUT` pointers; counted arrays; byte buffers; NUL-terminated strings; caller-capacity/size-query APIs; structures, fixed arrays, tagged unions, and recursive declarations; borrowed storage; caller-released allocations; opaque handles; callbacks with user data; and returned function pointers. Give special attention to NULL/count combinations, element-versus-byte units, NUL capacity, integer limits and overflow, pointer retention and callback lifetime, borrowed-versus-owned data, matching allocator/free functions, teardown after assertion failures, global isolation, invalid discriminants, and unchanged outputs on error. Keep examples small and deterministic, and document any target-library contract that differs from CTD rather than silently imposing CTD behavior.
+`````markdown
+## Testing Across Python–C Interfaces
+
+Use the dummy `ctd` library in `/cffi-ref` as the reference implementation for designing testable C interfaces and creating CFFI/Pytest tests for other C projects.
+
+### Testability of Internal C Interfaces
+
+Where direct testing requires access to identifiers that are private in production builds, apply configurable API macros consistently to both declarations and definitions.
+
+For a library named `ctd`, declarations may take this form:
+
+```c
+CTD_DATA_API int ctd_counter;
+CTD_API const char *ctd_version(void);
+```
+
+Define macros such as `CTD_API` and `CTD_DATA_API` in the library's C-only header so regular builds may retain internal linkage while dedicated test builds export selected identifiers. Follow the target library's naming conventions rather than copying CTD's macro names mechanically.
+
+### Designing Tests Across the Python/C Boundary
+
+Before designing tests, inspect the relevant files under `/cffi-ref`:
+
+* `AGENTS.md`
+* `README.md`
+* `ctd/src/ctd/ctd_api.h`
+* `ctd/src/ctd/ctd.h`
+* `ctd/src/ctd/ctd.c`
+* `ctd/tests/conftest.py`
+* the applicable `ctd/tests/test_*.py` modules
+
+Derive tests from that contract and cover success, boundary, and failure cases with descriptive parameter IDs. Reuse applicable CTD patterns for scalars, enums, globals, structures, pointers, arrays, buffers, and strings.
+
+For each API, determine:
+
+* parameter and return types;
+* valid ranges and NULL rules;
+* pointer direction (`IN`, `OUT`, or `INOUT`);
+* string representation and encoding, such as bytes or UTF-8;
+* count, length, capacity, and element-versus-byte units;
+* ownership of referenced or allocated memory;
+* mutations, side effects, and error reporting;
+* guarantees about output state after failure.
+
+Use CTD as a pattern library, not as a substitute for analysis: trace each reference test to its C declaration and implementation, and do not copy behavior without first establishing the target API contract.
+`````
+
+
