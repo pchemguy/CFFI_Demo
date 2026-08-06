@@ -152,6 +152,10 @@ def main() -> int:
     show_status("ctd_reverse_i32()", status)
     print(f"reversed: {list(values)}")
 
+    status = lib.ctd_scale_i32(values, 4, 2)
+    show_status("ctd_scale_i32()", status)
+    print(f"scaled: {list(values)}")
+
     stats = ffi.new("ctd_stats *")
     status = lib.ctd_compute_stats_i32(values, 4, stats)
     show_status("ctd_compute_stats_i32()", status)
@@ -199,6 +203,10 @@ def main() -> int:
     finally:
         lib.ctd_free(allocated)
 
+    borrowed_count = ffi.new("size_t *")
+    borrowed = lib.ctd_borrow_sequence_i32(borrowed_count)
+    print(f"borrowed sequence: {list(ffi.unpack(borrowed, borrowed_count[0]))}")
+
     # Recommended canonical pattern catalogue - 5. Byte buffers.
     heading("Byte buffers")
 
@@ -231,12 +239,17 @@ def main() -> int:
     show_status("ctd_xor_bytes()", status)
     print(f"XOR result: {bytes(ffi.buffer(destination, required_count[0]))!r}")
 
+    checksum = ffi.new("uint32_t *")
+    status = lib.ctd_checksum_bytes(source, len(source_bytes), checksum)
+    show_status("ctd_checksum_bytes()", status)
+    print(f"checksum: {checksum[0]}")
+
     # Recommended canonical pattern catalogue - 6. Strings.
     heading("Strings")
 
     text = b"cffi"
-    print(f"ctd_string_length({text!r}): {lib.ctd_string_length(text)}")
-    print(f"ctd_string_length(NULL): {lib.ctd_string_length(ffi.NULL)}")
+    print(f"ctd_utf8_byte_size({text!r}): {lib.ctd_utf8_byte_size(text)}")
+    print(f"ctd_utf8_byte_size(NULL): {lib.ctd_utf8_byte_size(ffi.NULL)}")
 
     for selector in (0, 1, 2, 99):
         print(
@@ -342,6 +355,12 @@ def main() -> int:
         f"values={list(descriptor.values[0:descriptor.count])}"
     )
 
+    static_descriptor = lib.ctd_static_descriptor()
+    print(
+        f"static descriptor: {c_string(static_descriptor.message)!r}, "
+        f"values={list(static_descriptor.values[0:static_descriptor.count])}"
+    )
+
     heading("Advanced callbacks and function pointers")
 
     user_data = ffi.new("int *", 10)
@@ -396,6 +415,18 @@ def main() -> int:
         print(f"value: {counter_value[0]}")
     finally:
         lib.ctd_free(counter)
+
+    accumulator = lib.ctd_accumulator_create(2)
+    if accumulator == ffi.NULL:
+        raise MemoryError("ctd_accumulator_create() failed")
+    accumulated = ffi.new("int64_t *")
+    try:
+        show_status("ctd_accumulator_add(20)", lib.ctd_accumulator_add(accumulator, 20))
+        show_status("ctd_accumulator_add(22)", lib.ctd_accumulator_add(accumulator, 22))
+        show_status("ctd_accumulator_get()", lib.ctd_accumulator_get(accumulator, accumulated))
+        print(f"accumulated value: {accumulated[0]}")
+    finally:
+        lib.ctd_accumulator_destroy(accumulator)
 
     heading("Explicit NULL-safe release")
 
