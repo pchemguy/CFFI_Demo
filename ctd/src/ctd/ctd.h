@@ -82,14 +82,17 @@ extern "C" {
   "ABCDEFGHIJKLMNOPQRSTUVWXYZ" \
   "abcdefghijklmnopqrstuvwxyz"
 
-/* Recommended canonical pattern catalogue - 1. Globals and status values. */
-/* Recommended canonical pattern catalogue - 2. Scalar and value operations. */
-/* Recommended canonical pattern catalogue - 3. Scalar pointer operations. */
-/* Recommended canonical pattern catalogue - 4. Typed arrays. */
-/* Recommended canonical pattern catalogue - 5. Byte buffers. */
-/* Recommended canonical pattern catalogue - 6. Strings. */
-/* Recommended canonical pattern catalogue - 7. Structures and tagged unions. */
-/* Recommended canonical pattern catalogue - 8. Opaque handles and release. */
+/* 
+** Recommended canonical pattern catalogue
+**   1. Globals and status values.
+**   2. Scalar and value operations.
+**   3. Scalar pointer operations.
+**   4. Typed arrays.
+**   5. Byte buffers.
+**   6. Strings.
+**   7. Structures and tagged unions.
+**   8. Opaque handles and release. 
+*/
 
 #include "ctd_api.h"
 
