@@ -4,7 +4,6 @@ from pathlib import Path
 
 from cffi import FFI
 
-
 PROGRAM_NAME = "CTD"
 PREFIX = Path(__file__).resolve().parent
 
@@ -60,6 +59,13 @@ def load_cdef_header(path: str | Path) -> str:
         rf"(?:[ \t]*/\*[ \t]*{escaped_guard}[ \t]*\*/)?"
         rf"[ \t]*(?:\r?\n|$)",
         "",
+        declarations,
+        flags=re.MULTILINE,
+    )
+
+    declarations = re.sub(
+        r"^CTD_DATA_API[ \t]+",
+        "extern ",
         declarations,
         flags=re.MULTILINE,
     )

@@ -122,10 +122,14 @@ typedef struct ctd_descriptor {
 } ctd_descriptor;
 
 /* Recommended canonical pattern catalogue - 1. Globals and status values. */
-CTD_API extern int ctd_global_counter;
-CTD_API extern const int ctd_global_constant;
-CTD_API extern const char ctd_global_name[];
-CTD_API extern const ctd_point ctd_global_origin;
+CTD_DATA_API int ctd_global_counter;
+CTD_DATA_API ctd_status ctd_global_last_status;
+CTD_DATA_API double ctd_global_scale;
+
+CTD_DATA_API const size_t ctd_max_supported_point_count;
+CTD_DATA_API const double ctd_numeric_epsilon;
+CTD_DATA_API const char ctd_library_name[];
+CTD_DATA_API const ctd_point ctd_origin_point;
 
 /* RETURN: OUT STRING; non-NULL; borrowed, library-owned, static lifetime. */
 CTD_API const char *ctd_version(void);
@@ -133,6 +137,7 @@ CTD_API const char *ctd_version(void);
 CTD_API const char *ctd_status_name(ctd_status status);
 CTD_API int ctd_global_counter_increment(void);
 CTD_API void ctd_global_counter_reset(void);
+CTD_API void ctd_globals_reset(void);
 
 /* Recommended canonical pattern catalogue - 2. Scalar and value operations. */
 CTD_API int ctd_add(int a, int b);
