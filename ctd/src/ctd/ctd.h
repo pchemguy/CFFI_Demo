@@ -14,74 +14,72 @@
 /****************************** API Declaration ******************************/
 
 /*
-** ```markdown
-** ## Build Modes
-** 
-** | Defines                       | `CTD_API`                                         |
-** | ----------------------------- | ------------------------------------------------- |
-** | `CTD_C_API` + `CTD_BUILD_LIB` | exported DLL/shared-library symbol                |
-** | `CTD_C_API` + `CTD_USE_LIB`   | imported DLL symbol on Windows; default elsewhere |
-** | `CTD_C_API_DEFAULT`           | default declaration                               |
-** | none                          | `static`                                          |
-** ```
+** Build modes:
+**
+**   no defines
+**       Production build. CTD symbols have internal linkage.
+**
+**   CTD_C_API + CTD_BUILD_LIB
+**       Build the test shared library and export CTD symbols.
+**
+**   CTD_C_API + CTD_USE_LIB
+**       Consume the test shared library and import CTD symbols.
 */
 
 #if defined(CTD_BUILD_LIB) && defined(CTD_USE_LIB)
 #  error "CTD_BUILD_LIB and CTD_USE_LIB are mutually exclusive"
 #endif
 
-#if defined(CTD_C_API) && defined(CTD_C_API_DEFAULT)
-#  error "CTD_C_API and CTD_C_API_DEFAULT are mutually exclusive"
-#endif
-
 #if !defined(CTD_C_API) && (defined(CTD_BUILD_LIB) || defined(CTD_USE_LIB))
 #  define CTD_API
 #endif
+
 
 #if defined(CTD_C_API)
 
 #  if defined(CTD_BUILD_LIB)
 
 #    if defined(_WIN32)
-#      define CTD_API __declspec(dllexport)
+#      define CTD_API             __declspec(dllexport)
+#      define CTD_DATA_DEF        __declspec(dllexport)
+#      define CTD_DATA_API extern __declspec(dllexport)
 #    elif defined(__GNUC__) || defined(__clang__)
-#      define CTD_API __attribute__((visibility("default")))
+#      define CTD_API             __attribute__((visibility("default")))
+#      define CTD_DATA_DEF        __attribute__((visibility("default")))
+#      define CTD_DATA_API extern __attribute__((visibility("default")))
 #    else
 #      define CTD_API
+#      define CTD_DATA_DEF
+#      define CTD_DATA_API extern
 #    endif
 
 #  elif defined(CTD_USE_LIB)
 
 #    if defined(_WIN32)
-#      define CTD_API __declspec(dllimport)
+#      define CTD_API             __declspec(dllimport)
+#      define CTD_DATA_API extern __declspec(dllimport)
 #    else
 #      define CTD_API
+#      define CTD_DATA_API extern
 #    endif
+
+/*
+** A library consumer must not compile CTD data definitions. Define this
+** macro only to make accidental use produce an immediate compiler error.
+*/
+#    define CTD_DATA_DEF CTD_DATA_DEF_IS_NOT_ALLOWED_IN_A_LIBRARY_CONSUMER
 
 #  else
 #    error "CTD_C_API requires CTD_BUILD_LIB or CTD_USE_LIB"
 #  endif
 
-#elif defined(CTD_C_API_DEFAULT)
-
-#  define CTD_API
-
 #else
 
-#  define CTD_API static
-
-#endif
-
-
-/* Global declarations need external linkage in API builds but must remain
-** internal alongside CTD_API definitions in production-style builds. */
-#if defined(CTD_C_API) || defined(CTD_C_API_DEFAULT)
-#  define CTD_DATA_API CTD_API extern
-#else
+#  define CTD_API      static
 #  define CTD_DATA_API static
-#endif
+#  define CTD_DATA_DEF static
 
-/*----------------------------- API Declaration -----------------------------*/
+#endif /* CTD_C_API */
 
 
 #ifdef __cplusplus
@@ -91,21 +89,24 @@ extern "C" {
 /*
 ** Constants.
 */
-#define LATIN \
+#define CTD_LATIN \
   "ABCDEFGHIJKLMNOPQRSTUVWXYZ" \
   "abcdefghijklmnopqrstuvwxyz"
 
-/* 
-** Recommended canonical pattern catalogue
-**   1. Globals and status values.
-**   2. Scalar and value operations.
+/*
+** Canonical API pattern catalogue:
+**
+**   1. Globals, constants, enums, and status values.
+**   2. Scalar value operations.
 **   3. Scalar pointer operations.
 **   4. Typed arrays.
-**   5. Byte buffers.
-**   6. Strings.
+**   5. Capacity-bounded byte buffers.
+**   6. Null-terminated strings.
 **   7. Structures and tagged unions.
-**   8. Opaque handles and release. 
-**   9. Failure and capacity protocol across the families.
+**   8. Opaque handles, ownership, and release.
+**
+** Each applicable family includes success, boundary, NULL, failure, and
+** capacity-reporting protocols.
 */
 
 #include "ctd_api.h"

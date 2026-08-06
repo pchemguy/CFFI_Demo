@@ -23,14 +23,14 @@ struct ctd_accumulator {
 };
 
 /* Recommended canonical pattern catalogue - 1. Globals and status values. */
-CTD_API int ctd_global_counter = 0;
-CTD_API ctd_status ctd_global_last_status = CTD_OK;
-CTD_API double ctd_global_scale = 1.0;
+CTD_DATA_DEF int ctd_global_counter = 0;
+CTD_DATA_DEF ctd_status ctd_global_last_status = CTD_OK;
+CTD_DATA_DEF double ctd_global_scale = 1.0;
 
-CTD_API const size_t ctd_max_supported_point_count = 1024;
-CTD_API const double ctd_numeric_epsilon = 1.0e-12;
-CTD_API const char ctd_library_name[] = "CTD";
-CTD_API const ctd_point ctd_origin_point = {0.0, 0.0};
+CTD_DATA_DEF const size_t ctd_max_supported_point_count = 1024;
+CTD_DATA_DEF const double ctd_numeric_epsilon = 1.0e-12;
+CTD_DATA_DEF const char ctd_library_name[] = "CTD";
+CTD_DATA_DEF const ctd_point ctd_origin_point = {0.0, 0.0};
 
 CTD_API const char *ctd_version(void) {
     return "ctd 1.0";
