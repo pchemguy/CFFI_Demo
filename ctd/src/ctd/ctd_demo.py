@@ -58,6 +58,13 @@ def main() -> int:
             "CTD_NUMBER_F64": lib.CTD_NUMBER_F64,
         },
     )
+    print(
+        "binary-operation constants:",
+        {
+            "CTD_BINARY_OPERATION_ADD": lib.CTD_BINARY_OPERATION_ADD,
+            "CTD_BINARY_OPERATION_MULTIPLY": lib.CTD_BINARY_OPERATION_MULTIPLY,
+        },
+    )
     print(f"ctd_global_constant: {lib.ctd_global_constant}")
 
     lib.ctd_global_counter_reset()
@@ -85,12 +92,9 @@ def main() -> int:
     heading("Scalar operations")
 
     print(f"ctd_add(17, 25): {lib.ctd_add(17, 25)}")
-    print(f"ctd_subtract(17, 25): {lib.ctd_subtract(17, 25)}")
     print(f"ctd_negate_i32(-123): {lib.ctd_negate_i32(-123)}")
     print(f"ctd_add_u64(2**63, 7): {lib.ctd_add_u64(2**63, 7)}")
     print(f"ctd_hypot_squared(3.0, 4.0): {lib.ctd_hypot_squared(3.0, 4.0)}")
-    print(f"ctd_operation_add(6, 7): {lib.ctd_operation_add(6, 7)}")
-    print(f"ctd_operation_multiply(6, 7): {lib.ctd_operation_multiply(6, 7)}")
 
     quotient = ffi.new("double *")
     status = lib.ctd_divide(22.0, 7.0, quotient)
@@ -128,10 +132,6 @@ def main() -> int:
     status = lib.ctd_sum_i32(values, 4, total)
     show_status("ctd_sum_i32()", status)
     print(f"sum: {total[0]}")
-
-    status = lib.ctd_scale_i32(values, 4, 3)
-    show_status("ctd_scale_i32()", status)
-    print(f"scaled: {list(values)}")
 
     status = lib.ctd_reverse_i32(values, 4)
     show_status("ctd_reverse_i32()", status)
@@ -337,7 +337,11 @@ def main() -> int:
     show_status("ctd_apply_callback()", status)
     print(f"callback result: {callback_result[0]}")
 
-    for selector in (0, 1, 99):
+    for selector in (
+        lib.CTD_BINARY_OPERATION_ADD,
+        lib.CTD_BINARY_OPERATION_MULTIPLY,
+        99,
+    ):
         operation = lib.ctd_get_binary_operation(selector)
         if operation == ffi.NULL:
             print(f"ctd_get_binary_operation({selector}): NULL")
@@ -362,7 +366,7 @@ def main() -> int:
         show_status("ctd_counter_add()", status)
         print(f"value: {counter_value[0]}")
     finally:
-        lib.ctd_counter_destroy(counter)
+        lib.ctd_free(counter)
 
     heading("Explicit NULL-safe release")
 

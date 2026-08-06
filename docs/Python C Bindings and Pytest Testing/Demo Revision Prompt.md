@@ -128,7 +128,7 @@ CTD_API double ctd_hypot_squared(double x, double y) {
 }
 ```
 
-- Do not reduce scope of the existing code, but DO clean it up, reducing potential unnecessary duplication or inconsistencies. For example, having `ctd_add`, `ctd_subtract`, `ctd_operation_add`, and `ctd_operation_multiply` is pointless; only `ctd_add` should be kept without overcomplicating names ("ctd_operation_add" vs "ctd_add"). Likewise, 'ctd_counter_destroy' is useless, when `ctd_free` is defined.
+- Do not reduce the range of demonstrated interoperation contracts, but remove redundant catalogue entries and use the general CTD release function for allocations that need no special teardown.
 - Ideally define a small group of topics suitable for simple and intuitive demonstration of multiple aspects, such as the case of point operation above.
 - I want to have
     - 2-3 different enums (with sensible use in the demo functions);

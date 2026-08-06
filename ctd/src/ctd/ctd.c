@@ -53,10 +53,6 @@ CTD_API int ctd_add(int a, int b) {
     return a + b;
 }
 
-CTD_API int ctd_subtract(int a, int b) {
-    return a - b;
-}
-
 CTD_API int32_t ctd_negate_i32(int32_t value) {
     return -value;
 }
@@ -80,14 +76,6 @@ CTD_API ctd_status ctd_divide(double numerator, double denominator, double *resu
 
     *result = numerator / denominator;
     return CTD_OK;
-}
-
-CTD_API int ctd_operation_add(int left, int right) {
-    return left + right;
-}
-
-CTD_API int ctd_operation_multiply(int left, int right) {
-    return left * right;
 }
 
 /* Recommended canonical pattern catalogue - 3. Scalar pointer operations. */
@@ -145,20 +133,6 @@ CTD_API ctd_status ctd_sum_i32(const int32_t *values, size_t count, int64_t *res
     }
 
     *result = sum;
-    return CTD_OK;
-}
-
-CTD_API ctd_status ctd_scale_i32(int32_t *values, size_t count, int32_t factor) {
-    size_t index;
-
-    if (values == NULL && count != 0) {
-        return CTD_ERROR_NULL;
-    }
-
-    for (index = 0; index < count; ++index) {
-        values[index] *= factor;
-    }
-
     return CTD_OK;
 }
 
@@ -546,6 +520,14 @@ CTD_API ctd_status ctd_value_as_f64(const ctd_value *value, double *result) {
 }
 
 /* Recommended canonical pattern catalogue - 8. Callbacks and function pointers. */
+static int binary_operation_add(int left, int right) {
+    return left + right;
+}
+
+static int binary_operation_multiply(int left, int right) {
+    return left * right;
+}
+
 CTD_API ctd_status ctd_apply_callback(
     int left,
     int right,
@@ -561,12 +543,14 @@ CTD_API ctd_status ctd_apply_callback(
     return CTD_OK;
 }
 
-CTD_API ctd_binary_operation ctd_get_binary_operation(int selector) {
-    switch (selector) {
-        case 0:
-            return ctd_operation_add;
-        case 1:
-            return ctd_operation_multiply;
+CTD_API ctd_binary_operation ctd_get_binary_operation(
+    ctd_binary_operation_kind operation_kind
+) {
+    switch (operation_kind) {
+        case CTD_BINARY_OPERATION_ADD:
+            return binary_operation_add;
+        case CTD_BINARY_OPERATION_MULTIPLY:
+            return binary_operation_multiply;
         default:
             return NULL;
     }
@@ -584,10 +568,6 @@ CTD_API ctd_counter *ctd_counter_create(int initial_value) {
 
     counter->value = initial_value;
     return counter;
-}
-
-CTD_API void ctd_counter_destroy(ctd_counter *counter) {
-    free(counter);
 }
 
 CTD_API ctd_status ctd_counter_get(const ctd_counter *counter, int *result) {
