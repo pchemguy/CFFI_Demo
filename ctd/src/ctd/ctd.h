@@ -92,6 +92,7 @@ extern "C" {
 **   6. Strings.
 **   7. Structures and tagged unions.
 **   8. Opaque handles and release. 
+**   9. Failure and capacity protocol across the families.
 */
 
 #include "ctd_api.h"
