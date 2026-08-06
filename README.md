@@ -6,11 +6,11 @@ This repository demonstrates **direct Pytest testing of deterministic, computati
 
 CTD also demonstrates deliberate **test-build exposure** of selected symbols that have internal linkage in production-style builds. Such declarations and definitions use the configurable `CTD_API` macro: its normal fallback is `static`, while dedicated standalone or embedded test builds give the wrapper the visibility it needs. The project does not make production-internal functions permanently public.
 
-This is CFFI **API mode**: CFFI generates and compiles a native extension using declarations supplied to `FFI.cdef()` and a real C header supplied through `FFI.set_source()`. It is not CFFI ABI mode, in which Python loads a library at runtime and calls it without compiling a C wrapper.
+This project relies on the CFFI **API mode**: CFFI generates and compiles a native extension using declarations supplied to `FFI.cdef()` and a real C header supplied through `FFI.set_source()`.  The compiled extension is linked against the target C library, avoiding explicit library loading required in the CFFI ABI mode.
 
 ## Supported reusable interface profile
 
-The reusable profile is defined by **how data moves and who owns it**, not just by a catalogue of C spellings. It covers deterministic, synchronous calls whose input pointers are not retained after return, plus explicitly managed opaque state. A complete pointer profile records:
+The reusable profile is defined by how data moves and who owns it, not just by a catalogue of C spellings. It covers deterministic, synchronous calls whose input pointers are not retained after return, plus explicitly managed opaque state. A complete pointer profile records:
 
 | Dimension       | Values used here                                                                  | Meaning                                                         |
 | --------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------- |
