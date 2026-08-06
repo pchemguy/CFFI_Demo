@@ -73,6 +73,12 @@
 #    error "CTD_C_API requires CTD_BUILD_LIB or CTD_USE_LIB"
 #  endif
 
+#elif defined(CTD_STATIC_LIB)
+
+#  define CTD_API
+#  define CTD_DATA_API extern
+#  define CTD_DATA_DEF
+
 #else
 
 #  define CTD_API      static

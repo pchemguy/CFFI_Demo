@@ -41,7 +41,7 @@ def compile_flags(compiler_type: str, shared: bool) -> list[str]:
         ]
     elif compiler_type in {"unix", "mingw32", "cygwin"}:
         flags = [
-            "-std=c11",
+            "-std=c99",
             "-Wall",
             "-Wextra",
             "-Wpedantic",
@@ -56,14 +56,17 @@ def compile_flags(compiler_type: str, shared: bool) -> list[str]:
 
 
 def link_flags(compiler_type: str, import_library: Path | None) -> list[str]:
-    if compiler_type == "msvc" and import_library is not None:
-        flags = [f"/IMPLIB:{import_library.resolve()}"]
-    elif compiler_type in {"unix", "mingw32", "cygwin"}:
-        flags = []
-    else:
-        raise RuntimeError(f"Unsupported compiler type: {compiler_type!r}")
+    if compiler_type == "msvc":
+        if import_library is None:
+            raise ValueError(
+                "An import-library path is required for an MSVC shared build"
+            )
+        return [f"/IMPLIB:{import_library.resolve()}"]
 
-    return flags
+    if compiler_type in {"unix", "mingw32", "cygwin"}:
+        return []
+
+    raise RuntimeError(f"Unsupported compiler type: {compiler_type!r}")
 
 
 def macros(shared: bool) -> list[tuple[str] | tuple[str, str | None]]:
@@ -73,7 +76,7 @@ def macros(shared: bool) -> list[tuple[str] | tuple[str, str | None]]:
             ("CTD_BUILD_LIB", None),
         ]
     else:
-        macro_list = [("CTD_C_API_DEFAULT", None)]
+        macro_list = [("CTD_STATIC_LIB", None)]
     return macro_list
 
 
