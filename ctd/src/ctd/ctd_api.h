@@ -6,6 +6,30 @@
 #define CTD_API_H
 
 /*
+** Recommended canonical pattern catalogue
+**
+** The nine contract families below are ordered from value-only calls through
+** progressively more explicit pointer and lifetime management.  A pointer
+** profile records DIRECTION, SHAPE, NULLABILITY, RETENTION, OWNERSHIP, and the
+** UNIT used by each associated size.  "Not retained" means that CTD does not
+** keep the pointer after the call returns.
+**
+** Shared CFFI ownership rules:
+** - Memory created by ffi.new() is caller-owned.  Keep its owning cdata alive
+**   for every call that uses it; CTD never frees or retains that memory.
+** - A borrowed C return remains library-owned, must not be passed to
+**   ctd_free(), and is valid only for the lifetime stated by its profile.
+** - An owned C return is caller-owned after a successful call and must be
+**   released exactly once with the matching CTD release function.
+** - OUT and INOUT storage is supplied and owned by the caller unless the
+**   declaration explicitly describes an owned return.  Size-query calls may
+**   allow NULL output storage while still requiring a non-NULL size pointer.
+** - Allocators must not be mixed: ffi.new() memory is released by Python/CFFI;
+**   CTD allocations are released only by ctd_free() or the type-specific CTD
+**   destroy function.  Never use ctd_free() for an opaque handle.
+*/
+
+/*
 ** Error codes.
 */
 typedef enum ctd_status {
@@ -71,7 +95,9 @@ typedef struct ctd_value {
 } ctd_value;
 
 /*
-** Callback types.
+** Callback types.  For ctd_binary_callback, user_data is IN OPAQUE; nullable;
+** not retained; caller-owned; no size unit.  The callback itself is an IN
+** OPAQUE callable pointer at its use site; its complete profile appears below.
 */
 typedef int (*ctd_binary_callback)(
     int left,
@@ -79,6 +105,8 @@ typedef int (*ctd_binary_callback)(
     void *user_data
 );
 
+/* Returned ctd_binary_operation values are OUT OPAQUE function pointers;
+** nullable; borrowed library-owned static code; no size unit. */
 typedef int (*ctd_binary_operation)(
     int left,
     int right
@@ -89,23 +117,20 @@ typedef int (*ctd_binary_operation)(
 */
 typedef struct ctd_counter ctd_counter;
 
-/*
-** Exported global variables and constants.
-*/
+/* Recommended canonical pattern catalogue - 1. Globals and status values. */
 CTD_API extern int ctd_global_counter;
 CTD_API extern const int ctd_global_constant;
 CTD_API extern const char ctd_global_name[];
 CTD_API extern const ctd_point ctd_global_origin;
 
-/*
-** General information and error handling.
-*/
+/* RETURN: OUT STRING; non-NULL; borrowed, library-owned, static lifetime. */
 CTD_API const char *ctd_version(void);
+/* RETURN: OUT STRING; non-NULL; borrowed, library-owned, static lifetime. */
 CTD_API const char *ctd_status_name(ctd_status status);
+CTD_API int ctd_global_counter_increment(void);
+CTD_API void ctd_global_counter_reset(void);
 
-/*
-** Scalar operations.
-*/
+/* Recommended canonical pattern catalogue - 2. Scalar and value operations. */
 CTD_API int ctd_add(int a, int b);
 CTD_API int ctd_subtract(int a, int b);
 CTD_API int32_t ctd_negate_i32(int32_t value);
@@ -115,30 +140,42 @@ CTD_API double ctd_hypot_squared(double x, double y);
 CTD_API int ctd_operation_add(int left, int right);
 CTD_API int ctd_operation_multiply(int left, int right);
 
+/* result: OUT SCALAR; non-NULL; not retained; caller-owned; no size unit. */
 CTD_API ctd_status ctd_divide(
     double numerator,
     double denominator,
     double *result
 );
 
-/*
-** Scalar pointer operations.
-*/
+/* Recommended canonical pattern catalogue - 3. Scalar pointer operations. */
+/* result: OUT SCALAR; non-NULL; not retained; caller-owned; no size unit. */
 CTD_API ctd_status ctd_get_magic(int32_t *result);
+/* value: INOUT SCALAR; non-NULL; not retained; caller-owned; no size unit. */
 CTD_API ctd_status ctd_increment(int32_t *value);
+/* a, b: INOUT SCALAR; non-NULL; not retained; caller-owned; no size unit. */
 CTD_API ctd_status ctd_swap_i32(int32_t *a, int32_t *b);
 
+/* Recommended canonical pattern catalogue - 4. Typed arrays. */
 /*
-** Arrays.
-**
-** Array lengths are expressed in typed elements, not bytes.
+** values: IN ARRAY; NULL only when count is zero; not retained; caller-owned;
+** count unit: int32_t elements.
+** result: OUT SCALAR; non-NULL; not retained; caller-owned; no size unit.
 */
 CTD_API ctd_status ctd_sum_i32(const int32_t *values, size_t count, int64_t *result);
 
+/* values: INOUT ARRAY; NULL only when count is zero; not retained;
+** caller-owned; count unit: int32_t elements. */
 CTD_API ctd_status ctd_scale_i32(int32_t *values, size_t count, int32_t factor);
 
+/* values: INOUT ARRAY; NULL only when count is zero; not retained;
+** caller-owned; count unit: int32_t elements. */
 CTD_API ctd_status ctd_reverse_i32(int32_t *values, size_t count);
 
+/*
+** values: IN ARRAY; non-NULL; not retained; caller-owned; count unit: int32_t
+** elements (count must be greater than zero).
+** result: OUT STRUCT; non-NULL; not retained; caller-owned; no size unit.
+*/
 CTD_API ctd_status ctd_compute_stats_i32(
     const int32_t *values,
     size_t count,
@@ -146,10 +183,10 @@ CTD_API ctd_status ctd_compute_stats_i32(
 );
 
 /*
-** Caller-provided output buffer.
-**
-** The function returns the number of elements required in required_count.
-** It writes data only when capacity is sufficient.
+** buffer: OUT ARRAY; NULL for a size query or zero count; not retained;
+** caller-owned; capacity unit: int32_t elements.
+** required_count: OUT SCALAR; non-NULL; not retained; caller-owned; value unit:
+** int32_t elements.  count unit: int32_t elements.
 */
 CTD_API ctd_status ctd_make_sequence_i32(
     int32_t start,
@@ -159,15 +196,18 @@ CTD_API ctd_status ctd_make_sequence_i32(
     size_t *required_count
 );
 
-/*
-** Library-allocated array.
-**
-** The returned array must be released with ctd_free().
-*/
+/* RETURN: OUT ARRAY; NULL on zero count or failure; not retained; caller-owned
+** after return; count unit: int32_t elements; release with ctd_free(). */
 CTD_API int32_t *ctd_alloc_sequence_i32(int32_t start, size_t count);
 
+/* Recommended canonical pattern catalogue - 5. Byte buffers. */
 /*
-** Byte buffers.
+** source: IN BUFFER; NULL only when source_count is zero; not retained;
+** caller-owned; source_count unit: bytes.
+** destination: OUT BUFFER; NULL for a size query or zero source_count; not
+** retained; caller-owned; destination_capacity unit: bytes.
+** required_count: OUT SCALAR; non-NULL; not retained; caller-owned; value
+** unit: bytes.
 */
 CTD_API ctd_status ctd_copy_bytes(
     const uint8_t *source,
@@ -177,23 +217,32 @@ CTD_API ctd_status ctd_copy_bytes(
     size_t *required_count
 );
 
+/* buffer: INOUT BUFFER; NULL only when count is zero; not retained;
+** caller-owned; count unit: bytes. */
 CTD_API ctd_status ctd_xor_bytes(uint8_t *buffer, size_t count, uint8_t mask);
 
-/*
-** Strings.
-**
-** ctd_select_static_string() returns borrowed library memory.
-** The returned pointer must not be freed.
-**
-** ctd_alloc_greeting() returns allocated memory.
-** The returned pointer must be released with ctd_free().
-*/
+/* Recommended canonical pattern catalogue - 6. Strings. */
+/* text: IN STRING; nullable; not retained; caller-owned; size inferred by NUL. */
 CTD_API size_t ctd_string_length(const char *text);
+/* RETURN: OUT STRING; nullable; not retained; borrowed library-owned static
+** memory; size inferred by NUL; must not be freed. */
 CTD_API const char *ctd_select_static_string(int selector);
+/* name: IN STRING; non-NULL; not retained; caller-owned; size inferred by NUL.
+** RETURN: OUT STRING; NULL on failure; not retained; caller-owned after return;
+** size inferred by NUL; release with ctd_free(). */
 CTD_API char *ctd_alloc_greeting(const char *name);
 
+/* buffer: INOUT STRING; non-NULL; not retained; caller-owned; capacity unit:
+** bytes including the terminating NUL. */
 CTD_API ctd_status ctd_ascii_upper(char *buffer, size_t capacity);
 
+/*
+** source: IN STRING; non-NULL; not retained; caller-owned; size inferred by NUL.
+** destination: OUT STRING; NULL for a size query; not retained; caller-owned;
+** destination_capacity unit: bytes including the terminating NUL.
+** required_size: OUT SCALAR; non-NULL; not retained; caller-owned; value unit:
+** bytes including the terminating NUL.
+*/
 CTD_API ctd_status ctd_copy_string(
     const char *source,
     char *destination,
@@ -201,30 +250,33 @@ CTD_API ctd_status ctd_copy_string(
     size_t *required_size
 );
 
-/*
-** Structure operations.
-*/
+/* Recommended canonical pattern catalogue - 7. Structures and tagged unions. */
 CTD_API ctd_point ctd_point_make(double x, double y);
 CTD_API ctd_point ctd_point_add(ctd_point a, ctd_point b);
+/* a, b: IN STRUCT; non-NULL; not retained; caller-owned; no size unit. */
 CTD_API double ctd_point_dot(const ctd_point *a, const ctd_point *b);
+/* point: INOUT STRUCT; non-NULL; not retained; caller-owned; no size unit. */
 CTD_API ctd_status ctd_point_translate(ctd_point *point, double dx, double dy);
 
+/* record: OUT STRUCT; non-NULL; not retained; caller-owned; no size unit.
+** name: IN STRING; non-NULL; not retained; caller-owned; size inferred by NUL. */
 CTD_API ctd_status ctd_record_initialize(
     ctd_record *record,
     int32_t id,
     const char *name
 );
 
-/*
-** Tagged-union operations.
-*/
 CTD_API ctd_value ctd_value_from_i64(int64_t value);
 CTD_API ctd_value ctd_value_from_f64(double value);
+/* value: IN STRUCT; non-NULL; not retained; caller-owned; no size unit.
+** result: OUT SCALAR; non-NULL; not retained; caller-owned; no size unit. */
 CTD_API ctd_status ctd_value_as_f64(const ctd_value *value, double *result);
 
-/*
-** Callback and function-pointer operations.
-*/
+/* Recommended canonical pattern catalogue - 8. Callbacks and function pointers. */
+/* callback: IN OPAQUE callable pointer; non-NULL; not retained; caller-owned;
+** no size unit. user_data: IN OPAQUE; nullable; not retained; caller-owned; no
+** size unit. result: OUT SCALAR; non-NULL; not retained; caller-owned; no size
+** unit.  Keep both callback and user_data cdata alive for the call. */
 CTD_API ctd_status ctd_apply_callback(
     int left,
     int right,
@@ -233,27 +285,28 @@ CTD_API ctd_status ctd_apply_callback(
     int *result
 );
 
+/* RETURN: OUT OPAQUE function pointer; nullable; borrowed library-owned static
+** code; no size unit; must not be freed. */
 CTD_API ctd_binary_operation ctd_get_binary_operation(int selector);
 
-/*
-** Exported-global operations.
-*/
-CTD_API int ctd_global_counter_increment(void);
-CTD_API void ctd_global_counter_reset(void);
-
-/*
-** Opaque counter operations.
-*/
+/* Recommended canonical pattern catalogue - 9. Opaque handles and release. */
+/* RETURN: OUT OPAQUE; NULL on failure; retained as handle state; caller-owned
+** after return; no size unit; release with ctd_counter_destroy(). */
 CTD_API ctd_counter *ctd_counter_create(int initial_value);
+/* counter: IN OPAQUE; nullable; consumed/released, not retained afterward;
+** caller-owned before call; no size unit. */
 CTD_API void ctd_counter_destroy(ctd_counter *counter);
+/* counter: IN OPAQUE; non-NULL; retained as handle state; caller-owned; no size
+** unit. result: OUT SCALAR; non-NULL; not retained; caller-owned; no size unit. */
 CTD_API ctd_status ctd_counter_get(const ctd_counter *counter, int *result);
+/* counter: INOUT OPAQUE; non-NULL; retained as handle state; caller-owned; no
+** size unit. result: OUT SCALAR; non-NULL; not retained; caller-owned; no size
+** unit. */
 CTD_API ctd_status ctd_counter_add(ctd_counter *counter, int amount, int *result);
 
-/*
-** Release memory returned by this library.
-**
-** Passing NULL is permitted.
-*/
+/* pointer: IN OPAQUE allocation; nullable; consumed/released, not retained;
+** CTD-owned before call; no size unit.  Only pass pointers returned by a CTD
+** allocation function documented to use ctd_free(). */
 CTD_API void ctd_free(void *pointer);
 
 #endif /* CTD_API_H */
