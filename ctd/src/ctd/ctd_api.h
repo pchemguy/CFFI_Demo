@@ -157,10 +157,14 @@ CTD_DATA_API int ctd_global_counter;
 CTD_DATA_API ctd_status ctd_global_last_status;
 CTD_DATA_API double ctd_global_scale;
 
+#if defined(CTD_C_API) || defined(CTD_BUILD_STATIC_LIB)
+
 CTD_DATA_API const size_t ctd_max_supported_point_count;
 CTD_DATA_API const double ctd_numeric_epsilon;
 CTD_DATA_API const char ctd_library_name[4];
 CTD_DATA_API const ctd_point ctd_origin_point;
+
+#endif
 
 /* RETURN: OUT STRING; non-NULL; borrowed, library-owned, static lifetime. */
 CTD_API const char *ctd_version(void);
