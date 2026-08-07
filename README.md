@@ -616,7 +616,7 @@ The coordinator obtains declared type names from `ffi.list_types()` and exported
 
 Nested CFFI type descriptions may be stored as structured JSON rather than expanded into a large relational model. Remove a disposable prior `cffi_model.db` when a clean diagnostic snapshot is required.
 
-## Compact coding-agent prompt
+## Coding-agent prompt
 
 The following prompt is intended for a coding agent when this repository is mounted at `/cffi-ref` as a read-only reference:
 
@@ -639,6 +639,89 @@ CTD_API const char *ctd_version(void);
 Define the corresponding API/data macros in the library's C-only header so ordinary production builds may retain internal linkage while dedicated test builds can provide plain external linkage or shared-library export/import linkage as required.
 
 Follow the target library's naming and build conventions rather than copying CTD macro names mechanically.
+
+---
+
+### Annotating C API Contracts
+
+When implementing or modifying C APIs that will be tested through Python/CFFI, make the boundary contract visible in the C declaration comments. Follow the compact style used in `/cffi-ref/ctd/src/ctd/ctd_api.h`.
+
+Do not restate ordinary C semantics mechanically. Use these defaults unless the declaration says otherwise:
+
+* scalar parameters and by-value structures are ordinary value inputs;
+* input pointers are not retained after the call;
+* caller-provided `OUT` and `INOUT` storage remains caller-owned;
+* borrowed library pointers must not be freed by the caller;
+* status-returning functions leave caller-provided `OUT` and `INOUT` storage unchanged on failure;
+* counts for typed arrays are measured in elements;
+* counts and capacities for byte buffers are measured in bytes;
+* NUL-terminated string size is inferred from the terminator;
+* callbacks are synchronous and not retained unless explicitly documented.
+
+Annotate the declaration when a pointer, return value, size parameter, lifetime rule, ownership rule, or failure behavior is not fully determined by those defaults.
+
+For pointer parameters, use compact contract terms as applicable:
+
+```text
+DIRECTION:   IN | OUT | INOUT
+SHAPE:       SCALAR | ARRAY | BUFFER | STRING | STRUCT | CALLBACK | OPAQUE
+NULLABILITY: non-NULL | nullable | NULL only when count is zero | NULL for size query
+RETENTION:   not retained | borrowed/retained beyond return
+OWNERSHIP:   caller-owned | borrowed library-owned | CTD/target-owned
+UNIT:        elements | bytes | bytes including NUL | inferred by NUL
+```
+
+Prefer declaration comments such as:
+
+```c
+/* result: OUT SCALAR; non-NULL. */
+ctd_status ctd_get_magic(int32_t *result);
+
+/* values: IN ARRAY; NULL only when count is zero; count unit: int32_t elements. */
+ctd_status ctd_sum_i32(
+    const int32_t *values,
+    size_t count,
+    int64_t *result
+);
+
+/*
+** destination: OUT BUFFER; NULL for size query; capacity unit: bytes.
+** required_count: OUT SCALAR; value unit: bytes.
+*/
+ctd_status ctd_copy_bytes(
+    const uint8_t *source,
+    size_t source_count,
+    uint8_t *destination,
+    size_t destination_capacity,
+    size_t *required_count
+);
+
+/* RETURN: borrowed library-owned STRING; nullable; static lifetime. */
+const char *ctd_select_static_string(int selector);
+
+/* RETURN: caller-owned STRING; NULL on failure; release with ctd_free(). */
+char *ctd_alloc_greeting(const char *name);
+```
+
+Do not repeat default properties such as `not retained` or `caller-owned` on every parameter when they add no information. State them only when needed to disambiguate the API or when the function departs from the defaults.
+
+Always document these non-default cases explicitly:
+
+* a pointer retained after the call;
+* a returned pointer whose ownership or lifetime is not obvious;
+* a returned allocation and its exact release function;
+* an output structure containing borrowed pointer fields;
+* a count or capacity whose unit is not the family default;
+* NULL used as a size-query protocol;
+* strings whose capacity includes the terminating NUL;
+* a callback retained beyond the call;
+* aliasing between input and output storage;
+* output that may be modified on failure;
+* required-size/count outputs that are intentionally written on `CTD_ERROR_CAPACITY` or another failure result.
+
+Keep annotations adjacent to the declaration so that an agent implementing or testing the function has the contract in context. If implementation behavior and declaration comments disagree, resolve the discrepancy rather than inferring the contract from one side alone.
+
+---
 
 ### Designing Tests Across the Python/C Boundary
 
