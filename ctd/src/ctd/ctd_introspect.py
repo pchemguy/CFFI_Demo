@@ -18,7 +18,7 @@ from introspect import cffi_model, database
 
 def main() -> int:
     db: database.CFFIModelDB = database.CFFIModelDB(database=".")
-    cffi_model.CFFITarget.bind(ffi, lib)
+    cffi_model.cffi_init(ffi, lib)
     ctypes: cffi_model.CFFICTypes = cffi_model.CFFICTypes()
 
     ffi_names: list[str]
@@ -28,14 +28,14 @@ def main() -> int:
      
     ffi_names, lib_names, ffi_ctypes, lib_ctypes = ctypes.get_ctypes()
 
-    ffi_ctypes_filtered: dict[str, Any] = [
+    ffi_ctypes_filtered: list[dict[str, Any]] = [
         {prop: value for prop, value in desc.items() if prop != "ctype"}
         for desc in ffi_ctypes
     ]
 
     db.ctypes_insert(ffi_ctypes_filtered)
 
-    lib_ctypes_filtered: dict[str, Any] = [
+    lib_ctypes_filtered: list[dict[str, Any]] = [
         {prop: value for prop, value in desc.items() if prop != "ctype"}
         for desc in lib_ctypes
     ]

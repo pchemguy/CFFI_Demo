@@ -156,6 +156,7 @@ typedef struct ctd_descriptor {
 CTD_DATA_API int ctd_global_counter;
 CTD_DATA_API ctd_status ctd_global_last_status;
 CTD_DATA_API double ctd_global_scale;
+CTD_DATA_API ctd_point ctd_global_cur_point;
 
 #if defined(CTD_C_API) || defined(CTD_BUILD_STATIC_LIB)
 

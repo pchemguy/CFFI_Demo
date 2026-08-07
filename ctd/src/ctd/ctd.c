@@ -26,6 +26,7 @@ struct ctd_accumulator {
 CTD_DATA_DEF int ctd_global_counter = 0;
 CTD_DATA_DEF ctd_status ctd_global_last_status = CTD_OK;
 CTD_DATA_DEF double ctd_global_scale = 1.0;
+CTD_DATA_DEF ctd_point ctd_global_cur_point = {0.0, 0.0};
 
 CTD_DATA_DEF const size_t ctd_max_supported_point_count = 1024;
 CTD_DATA_DEF const double ctd_numeric_epsilon = 1.0e-12;
