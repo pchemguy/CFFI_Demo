@@ -1,5 +1,3 @@
-# AGENTS.md
-
 ## Project Orientation — Read This First
 
 This repository is an experimental engineering project for developing **portable Pytest workflows that test deterministic C APIs through CFFI API mode**.
@@ -92,9 +90,10 @@ The remaining sections provide detailed rules for:
 1. [C declarations](## C Source and Declaration Architecture), [linkage](## CTD Linkage Model), and [style](## C Style).
 2. [CFFI build and declaration handling](## CFFI API-Mode Build Architecture).
 3. [supported boundary patterns](## Supported CFFI Boundary Patterns) and [ownership](## Ownership Rules).
-4. generated artifacts and introspection.
-5. Python/test style and validation.
-6. coding-agent workflow and change discipline.
+4. [generated artifacts](## Generated and Build Artifacts), [introspection](## Introspection Model), and [tests](## Tests).
+5. [Python/test style](## Python Style) and [validation](## Validation).
+6. [coding-agent workflow](## Agent Workflow) and [change discipline](## Change Discipline).
+7. [documentation rules](## Documentation Rules) and [non-goals](## Non-Goals Unless Explicitly Requested).
 
 When a task is narrow, read this orientation first, then the applicable detailed section and the relevant source/tests before editing.
 
