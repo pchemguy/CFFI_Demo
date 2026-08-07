@@ -38,19 +38,12 @@ A complete pointer profile records:
 CTD implements eight principal runtime families plus a cross-cutting failure/capacity protocol.
 
 1. **Globals, constants, and status values.** Read/write isolated test state (`ctd_global_counter`, `ctd_global_last_status`, `ctd_global_scale`), read exported constants, reset state, increment the counter, and convert status values into borrowed static names with `ctd_status_name()`. `ctd_version()` is also a borrowed static string.
-
 2. **Scalar and value operations.** Values flow entirely by value through `ctd_add()`, `ctd_negate_i32()`, `ctd_add_u64()`, and `ctd_hypot_squared()`. `ctd_divide()` adds a non-NULL caller-owned `OUT SCALAR`; failure leaves that output unchanged.
-
 3. **Scalar pointers.** `ctd_get_magic()` writes one caller-owned scalar, `ctd_increment()` mutates one, and `ctd_swap_i32()` mutates two. These pointers are non-NULL and not retained.
-
 4. **Typed arrays.** `ctd_sum_i32()` reads an `IN ARRAY`; `ctd_reverse_i32()` and `ctd_scale_i32()` mutate `INOUT ARRAY` storage; and `ctd_compute_stats_i32()` writes an `OUT STRUCT`. Counts are measured in `int32_t` elements. `ctd_make_sequence_i32()` demonstrates size query, explicit capacity, and caller-provided output storage. `ctd_borrow_sequence_i32()` returns a borrowed static array plus an element count, while `ctd_alloc_sequence_i32()` returns CTD-owned storage released by `ctd_free()`.
-
 5. **Byte buffers.** `ctd_copy_bytes()` separates source count, destination capacity, and required count, all measured in bytes; a NULL destination is valid for the size-query path. `ctd_xor_bytes()` mutates explicit-length storage and is also used to demonstrate `ffi.from_buffer()` over mutable Python memory. `ctd_checksum_bytes()` reads an explicit-length buffer and writes an output scalar. Embedded zero bytes remain ordinary data.
-
 6. **Strings.** `ctd_utf8_byte_size()` consumes a nullable NUL-terminated string and reports encoded byte length rather than Unicode code points. `ctd_select_static_string()` returns borrowed static storage; `ctd_alloc_greeting()` returns CTD-owned storage released with `ctd_free()`; `ctd_ascii_upper()` mutates caller-owned string storage under an explicit byte capacity; and `ctd_copy_string()` supports a required-size query and a caller destination whose capacity and required size include the terminating NUL.
-
 7. **Structures, tagged values, and callback/function-pointer boundaries.** `ctd_point_make()` and `ctd_point_add()` return structures by value; `ctd_point_dot()` borrows two structures for the call; and `ctd_point_translate()` mutates one. `ctd_record_initialize()` demonstrates fixed-size character and numeric array fields inside a structure. The family also includes the `ctd_value` tagged union, nested `ctd_config` / `ctd_range` structures, borrowed configuration storage, and descriptors whose pointer fields may either alias caller-owned storage or refer to static library storage. `ctd_apply_callback()` demonstrates a synchronous Python callback and `void *` user data; `ctd_get_binary_operation()` demonstrates a borrowed callable function pointer returned from C.
-
 8. **Opaque handles and exact release.** `ctd_counter_create()` returns simple CTD-owned state used through `ctd_counter_get()` and `ctd_counter_add()` and released with `ctd_free()`. `ctd_accumulator_create()` returns an opaque object containing nested allocated state; after `add` / `get`, it must be released with the type-specific `ctd_accumulator_destroy()`, never `ctd_free()`.
 
 Across these families, **failure and capacity behavior is a separate contract dimension rather than another data shape**. Status-returning calls preserve caller-provided `OUT` or `INOUT` storage on failure unless explicitly documented otherwise. Valid size-query/capacity paths still report the required count or size when returning `CTD_ERROR_CAPACITY`. Tests use sentinels to verify that unrelated output storage was not partially modified.
@@ -129,16 +122,16 @@ On Windows/MSVC:
 
 ```c
 CTD_API      -> __declspec(dllexport)
-CTD_DATA_API -> extern __declspec(dllexport)
 CTD_DATA_DEF -> __declspec(dllexport)
+CTD_DATA_API -> extern __declspec(dllexport)
 ```
 
 On GCC/Clang shared-library builds:
 
 ```c
 CTD_API      -> __attribute__((visibility("default")))
-CTD_DATA_API -> extern __attribute__((visibility("default")))
 CTD_DATA_DEF -> __attribute__((visibility("default")))
+CTD_DATA_API -> extern __attribute__((visibility("default")))
 ```
 
 ### Shared-library consumer
@@ -597,7 +590,7 @@ ctd/src/ctd/
 docs/                                 exploratory background notes
 ```
 
-The `pigen/` experiment is separate from CTD. The local Windows `pyenv/` implementation is user environment-management infrastructure and is outside normal project build and modification scope.
+The local Windows `pyenv/` implementation is user environment-management infrastructure and is outside normal project build and modification scope.
 
 ## Introspection workflow
 
