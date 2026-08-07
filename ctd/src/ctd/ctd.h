@@ -99,22 +99,6 @@ extern "C" {
   "ABCDEFGHIJKLMNOPQRSTUVWXYZ" \
   "abcdefghijklmnopqrstuvwxyz"
 
-/*
-** Canonical API pattern catalogue:
-**
-**   1. Globals, constants, enums, and status values.
-**   2. Scalar value operations.
-**   3. Scalar pointer operations.
-**   4. Typed arrays.
-**   5. Capacity-bounded byte buffers.
-**   6. Null-terminated strings.
-**   7. Structures and tagged unions.
-**   8. Opaque handles, ownership, and release.
-**
-** Each applicable family includes success, boundary, NULL, failure, and
-** capacity-reporting protocols.
-*/
-
 #include "ctd_api.h"
 
 #ifdef __cplusplus
