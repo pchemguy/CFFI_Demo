@@ -45,6 +45,9 @@ class CFFITarget:
 cffi_target: CFFITarget | None = None
 
 
+CFFI_NONE = "CFFI target is not initialized; call CFFITarget.bind(ffi, lib) first"
+
+
 class CTypeKinds(StrEnum):
     PRIMITIVE = "primitive"
     POINTER = "pointer"
@@ -90,10 +93,7 @@ def _ctype2dict(
     seen: set[_cffi_backend.CType] | None = None,
 ) -> dict[str, Any]:
     if cffi_target is None:
-        raise RuntimeError(
-            "CFFI target is not initialized; call CFFITarget.bind(ffi, lib) "
-            "before creating CEnumSpec instances"
-        )
+        raise RuntimeError(CFFI_NONE)
 
     if seen is None:
         seen = set()
@@ -150,7 +150,7 @@ def _process_field(
                 if fattr_value is None:
                     continue
 
-                if isinstance(fattr_value, cffi_target.ffi.CType):
+                if isinstance(fattr_value, _cffi_backend.CType):
                     field_dict[fattr_name] = _ctype2dict(fattr_value, seen)
                 else:
                     field_dict[fattr_name] = fattr_value
@@ -164,10 +164,7 @@ def _process_field(
 
 def _ffiname2dict(name: str) -> dict[str, Any]:
     if cffi_target is None:
-        raise RuntimeError(
-            "CFFI target is not initialized; call CFFITarget.bind(ffi, lib) "
-            "before creating CEnumSpec instances"
-        )
+        raise RuntimeError(CFFI_NONE)
 
     ctype: _cffi_backend.CType = cffi_target.ffi.typeof(name)
     return {"name": name, "category": "ffi_typedef", "ctype": ctype} | _ctype2dict(
@@ -177,10 +174,7 @@ def _ffiname2dict(name: str) -> dict[str, Any]:
 
 def _libname2dict(name: str) -> dict[str, Any]:
     if cffi_target is None:
-        raise RuntimeError(
-            "CFFI target is not initialized; call CFFITarget.bind(ffi, lib) "
-            "before creating CEnumSpec instances"
-        )
+        raise RuntimeError(CFFI_NONE)
 
     try:
         ctype: _cffi_backend.CType = cffi_target.ffi.typeof(
@@ -199,18 +193,15 @@ def _libname2dict(name: str) -> dict[str, Any]:
 
 @dataclass
 class CFFICTypes:
-    ffi_names: list[str] | None = field(init=False)
-    lib_names: list[str] | None = field(init=False)
-    ffi_ctypes: list[dict[str, Any]] = field(default_factory=list)
-    lib_ctypes: list[dict[str, Any]] = field(default_factory=list)
-    enum_members: set[str] = field(default_factory=set)
+    ffi_names: list[str] = field(default_factory=list, init=False)
+    lib_names: list[str] = field(default_factory=list, init=False)
+    ffi_ctypes: list[dict[str, Any]] = field(default_factory=list, init=False)
+    lib_ctypes: list[dict[str, Any]] = field(default_factory=list, init=False)
+    enum_members: set[str] = field(default_factory=set, init=False)
 
-    def get_ctypes(self) -> None:
+    def get_ctypes(self) -> tuple[list[str], list[str], list[dict], list[dict]]:
         if cffi_target is None:
-            raise RuntimeError(
-                "CFFI target is not initialized; call CFFITarget.bind(ffi, lib) "
-                "before creating CEnumSpec instances"
-            )
+            raise RuntimeError(CFFI_NONE)
 
         ffi = cffi_target.ffi
         lib = cffi_target.lib
@@ -222,7 +213,7 @@ class CFFICTypes:
         for ctype in self.ffi_ctypes:
             self.enum_members.update(ctype.get("relements") or {})
 
-        lib_names: list[str] = list(set(dir(lib)) - set(self.enum_members))
+        lib_names: list[str] = sorted(set(dir(lib)) - self.enum_members)
         self.lib_names = lib_names
         self.lib_ctypes = [_libname2dict(lib_name) for lib_name in lib_names]
 

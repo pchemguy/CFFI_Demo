@@ -10,6 +10,8 @@ from pprint import pprint
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.sep.join(os.path.abspath(__file__).split(os.sep)[:-2]))
 
+import _cffi_backend
+
 from ctd._ctd_wrapper import ffi, lib
 from introspect import cffi_model, database
 
@@ -39,7 +41,7 @@ def main() -> int:
     ]
 
     db.ctypes_insert(lib_ctypes_filtered)
-    
+
     return 0
 
 
