@@ -1,149 +1,209 @@
- # AGENTS.md
+# AGENTS.md
 
-## Purpose
+## Project Orientation — Read This First
 
-This repository is an exploratory CFFI project for evaluating Python/Pytest workflows that test C code, including functions and variables that normally have internal linkage.
+This repository is an experimental engineering project for developing **portable Pytest workflows that test deterministic C APIs through CFFI API mode**.
 
-The demo C library is named **CTD**. The project compares two CFFI API-mode integration strategies:
+The demo C library is **CTD**. It exists primarily as a compact reference catalogue of Python/C boundary patterns rather than as production-library code. Keep CTD implementations small, deterministic, and easy to trace from declaration to implementation to test.
 
-1. Build CTD as a shared library and dynamically link the generated CFFI wrapper against it.
-2. Compile `ctd.c` into the generated CFFI wrapper so the CTD implementation is embedded in the Python extension.
+The project compares two CFFI integration modes:
 
-The project also investigates CFFI reflection and diagnostics for declarations supplied through `FFI.cdef()`.
+1. **Dynamic wrapper** — build CTD as a standalone shared library, then link `_ctd_wrapper` against it.
+2. **Embedded wrapper** — compile `ctd.c` directly into `_ctd_wrapper`; CTD symbols remain exported in this diagnostic build so native exports can be inspected.
 
-This is an experimental engineering repository. Preserve its ability to compare alternative workflows rather than prematurely collapsing them into one implementation.
+Both modes expose the same Python import interface:
 
-## Execution Environments
+```python
+from _ctd_wrapper import ffi, lib
+```
 
-The project aims to develop portable CFFI workflows and may be modified or tested by either a local agent or a cloud agent. Agents must first identify which execution environment they are running in and apply only the corresponding operational rules.
+CTD also supports separate linkage roles:
 
-### Local Windows Agent
+* normal production-style fallback: CTD functions/data have internal `static` linkage;
+* standalone static library: ordinary external linkage;
+* shared-library producer: exported external linkage;
+* shared-library consumer: imported external linkage where required by the platform.
 
-The local development environment is:
+### Environment
 
-- Windows;
-- `cmd.exe`;
-- Conda-managed Python;
-- an already activated MSVC toolchain.
+First determine where you are running.
 
-The environment is fully configured before the agent is started. A local agent must not bootstrap, activate, repair, replace, or otherwise modify the development environment.
+**Local Windows agent**
 
-The `/pyenv` directory contains the user's environment-management implementation. It is out of scope for agent execution and modification.
+* Windows with `cmd.exe`.
+* Conda-managed Python and MSVC are already activated before the agent starts.
+* Do not bootstrap, activate, repair, replace, or otherwise modify that environment.
+* Do not execute, edit, generate, delete, or rename anything under `/pyenv`.
+* Do not require PowerShell, Bash, MSYS2, WSL, or another compatibility layer unless the task explicitly concerns one.
+* Preserve the Python/setuptools-based portable native build scripts; do not replace them with `.bat` or direct-MSVC build scripts.
 
-For a local Windows agent:
+**Cloud Linux agent**
 
-- Do not execute, edit, generate, delete, or rename any file under `/pyenv`.
-- Do not install packages globally.
-- Do not modify the user's root environment.
-- Do not run environment-activation or bootstrap scripts.
-- Use the Python interpreter and MSVC environment already present in the agent process.
-- Use Windows-compatible paths and subprocess behavior.
-- Do not require PowerShell, Bash, MSYS2, WSL, or another Unix compatibility layer unless the task explicitly concerns one of them.
-- Do not replace the portable Python build scripts with `.bat` scripts or direct MSVC command scripts.
+* Use root `pyproject.toml` as the authoritative Python environment/install entry point.
+* Install project dependencies in the sandbox as needed.
+* Use the C compiler/linker selected or discovered by setuptools.
+* Do not emulate Windows artifact names or alter portable code merely to reproduce `.dll`, `.lib`, `.exp`, or `.pyd` outputs.
 
-The standalone CTD build is intentionally driven by Python and uses the Python distutils/setuptools compiler abstraction rather than invoking an MSVC-specific batch build. Preserve this portable build approach.
-
-### Cloud Linux Agent
-
-A cloud agent may run in a dedicated Linux sandbox. The sandbox exists solely for the project, so the local Windows restrictions on global installation and environment management do not apply.
-
-For a cloud Linux agent:
-
-- Use `pyproject.toml` as the authoritative entry point for creating or installing the Python project environment.
-- Install project dependencies in the sandbox as needed.
-- Use the C compiler and linker selected or discovered by setuptools in that environment.
-- Use normal Linux paths and shell facilities.
-- Do not assume MSVC, Windows import libraries, DLLs, `.pyd` files, or Windows command scripts are available.
-- Do not alter project code merely to reproduce Windows-specific artifact names or directory layouts.
-- Preserve portability: avoid unnecessary compiler-specific options and isolate unavoidable platform-specific behavior.
-
-The cloud sandbox does not need to emulate the user's `/pyenv` workflow.
-
-## Repository Areas
-
-The principal CTD sources are under:
+### Key Project Files
 
 ```text
 ctd/src/ctd/
+    ctd_api.h                     dual-use C/CDEF declarations
+    ctd.h                         C header and linkage policy
+    ctd.c                         deterministic CTD implementation
+    cdef_header.py                narrow CDEF transformation
+    build_ctd.py                  standalone native-library builder
+    build_ctd_wrapper.py          dynamically linked CFFI builder
+    build_ctd_wrapper_embedded.py embedded-source CFFI builder
+    ctd_demo.py                   complete runtime demonstration
+    ctd_introspect.py             reflection/database coordinator
+    introspect/
+        cffi_model.py
+        database.py
+        schema.sql
+
+ctd/tests/
+    conftest.py
+    cffi_types.py
+    test_cdef_header.py
+    test_globals_status_and_scalars.py
+    test_pointers_arrays_and_bytes.py
+    test_strings_structures_and_ownership.py
+    test_cffi_usage_patterns.py
 ```
 
-Important files include:
+Confirm the actual tree before editing; this list is orientation, not an exhaustive inventory.
 
-```text
-ctd_api.h
-ctd.h
-ctd.c
-build_ctd.py
-build_ctd_wrapper.py
-build_ctd_wrapper_embedded.py
-ctd_demo.py
-ctd_introspect.py
-introspect/cffi_model.py
-introspect/database.py
-introspect/schema.sql
-```
+### Architecture That Must Be Preserved
 
-Confirm the actual repository tree before editing. Do not infer that this list is exhaustive.
+* `ctd_api.h` is the single declaration catalogue used by both C and CFFI.
+* `ctd.h` supplies C-only includes, linkage macros, and then includes `ctd_api.h`.
+* `cdef_header.py` mechanically transforms `ctd_api.h`; do not maintain a second handwritten CDEF declaration file.
+* `FFI.cdef()` parses transformed declaration text. It does not preprocess arbitrary C, follow headers, or inspect `ctd.c`.
+* `FFI.set_source()` includes the real `ctd.h`; the platform C compiler validates the actual declarations and layouts.
+* Keep dynamic and embedded wrapper workflows independently usable.
+* Generated wrapper/native artifacts are disposable and are never authoritative source.
+* Pytest is the test runner. Tests should emphasize distinct CFFI boundary mechanics and API contracts, not merely one test per function.
 
-## C Source Architecture
+### How This File Is Organized
+
+The remaining sections provide detailed rules for:
+
+1. [C declarations](## C Source and Declaration Architecture), [linkage](## CTD Linkage Model), and [style](## C Style).
+2. CFFI build and declaration handling.
+3. ownership and supported boundary patterns.
+4. generated artifacts and introspection.
+5. Python/test style and validation.
+6. coding-agent workflow and change discipline.
+
+When a task is narrow, read this orientation first, then the applicable detailed section and the relevant source/tests before editing.
+
+---
+
+## C Source and Declaration Architecture
 
 ### `ctd.c`
 
-`ctd.c` implements the demo library. It contains small functions and data intended to exercise a broad range of CFFI-supported declarations, including:
+`ctd.c` implements the fixture library. It intentionally exercises a practical range of CFFI interfaces:
 
-- numeric scalars;
-- strings;
-- enumerations;
-- structures;
-- arrays;
-- pointers;
-- global variables;
-- memory-management cases.
+* scalars and enums;
+* writable and read-only globals;
+* scalar pointers;
+* typed arrays and byte buffers;
+* NUL-terminated strings;
+* structures, nested structures, fixed-size array fields, and tagged unions;
+* borrowed and owned pointer returns;
+* callbacks and returned function pointers;
+* opaque handles and explicit release.
 
-Keep examples small, deterministic, and focused on one interoperability behavior whenever practical.
+CTD is not intended to be production-database-grade defensive code. Do not add elaborate validation, abstraction, or edge-case machinery unless it serves a specific boundary pattern or contract being tested.
+
+Keep individual examples deterministic and focused.
 
 ### `ctd.h` and `ctd_api.h`
 
-The public/declarative header is intentionally split:
+The declaration architecture is intentionally split:
 
-- `ctd.h` is the normal C-facing header and includes `ctd_api.h`.
-- `ctd_api.h` contains declarations intended to be transformed into `FFI.cdef()` input.
+* `ctd.h` is the normal implementation/developer header.
+* `ctd_api.h` contains declarations that are also transformed into CFFI CDEF input.
 
-Do not merge these files merely to simplify the layout. The split is part of the experiment.
+Do not merge these files merely to simplify the layout.
 
-`ctd_api.h` is dual-use input. It must remain valid for the C compiler while also remaining mechanically transformable into CDEF text. CFFI CDEF input does not support general preprocessing, so build code removes only the unsupported wrapper material, principally:
+`ctd_api.h` must remain:
 
-- the include guard;
-- the `CTD_API` declaration prefix.
+1. valid when included through `ctd.h` by a C compiler;
+2. mechanically transformable into one coherent `FFI.cdef()` declaration stream.
 
-When adding declarations intended for Python exposure:
+When exposing a new API:
 
-1. Declare them in `ctd_api.h`.
-2. Ensure they remain valid C declarations.
-3. Ensure the existing CDEF transformation can process them without ad hoc manual copies.
-4. Include implementation-facing definitions and macros in `ctd.h` or `ctd.c` as appropriate.
+1. declare it in `ctd_api.h`;
+2. implement it in `ctd.c`;
+3. use the established linkage/data macros;
+4. ensure `cdef_header.py` can transform the declaration without a manual duplicate;
+5. add or update tests when the declaration introduces a meaningful new contract or CFFI usage pattern.
 
-Do not create a manually maintained duplicate CDEF declaration file unless explicitly requested.
+### CDEF Transformation
 
-## Private-Function Test Exposure
+`cdef_header.py` performs a deliberately narrow textual transformation.
 
-The project explores testing functions that are `static` in production but exported in dedicated test builds.
+The current declaration catalogue is constrained so that C-only preprocessor wrapper lines can be stripped while preserving the declarations themselves. The transformer removes applicable lines beginning with directives such as:
 
-Selected declarations and definitions use the configurable `CTD_API` macro instead of a literal `static` storage-class specifier. Build configuration determines whether `CTD_API` provides:
+```text
+#if
+#ifdef
+#ifndef
+#endif
+#define
+```
 
-- internal linkage for production-style builds;
-- export visibility for test builds;
-- import visibility where required by a client build.
+and removes API prefixes from declarations. `CTD_DATA_API` declarations become ordinary `extern` declarations for CDEF purposes.
 
-Preserve the production/test linkage distinction. Do not simply make private functions permanently public.
+This is **not a general C preprocessor**.
 
-When adding a test-visible internal function, apply `CTD_API` consistently to its declaration and definition and verify both production-style and test-export build behavior.
+Do not introduce conditional declaration alternatives, `#else`/`#elif` branches, macro-generated declarations, or arbitrary preprocessing into `ctd_api.h` without first redesigning and testing the transformation contract.
+
+Do not create a separately maintained CDEF header unless explicitly requested.
+
+---
+
+## CTD Linkage Model
+
+Selected CTD declarations and definitions use configurable macros rather than literal storage-class/export syntax.
+
+The conceptual modes are:
+
+| Mode                      | Functions               | Data declarations                | Data definitions  |
+| ------------------------- | ----------------------- | -------------------------------- | ----------------- |
+| production/internal       | `static`                | `static`                         | `static`          |
+| standalone static library | ordinary external       | `extern`                         | ordinary external |
+| shared producer           | exported                | exported `extern`                | exported          |
+| shared consumer           | imported where required | imported `extern` where required | not applicable    |
+
+Typical macros include:
+
+```text
+CTD_API
+CTD_DATA_API
+CTD_DATA_DEF
+```
+
+On Windows shared-library builds these may expand to `__declspec(dllexport)` or `__declspec(dllimport)`. On GCC/Clang shared-library producers, default-visibility attributes may be used.
+
+A static implementation library does **not** require DLL import/export or ELF visibility attributes; it requires ordinary external linkage.
+
+Some `const` global declarations are omitted from internal/static declaration mode because an uninitialized file-scope `static const` declaration is not the desired definition pattern. Their initialized `CTD_DATA_DEF` definitions remain in `ctd.c`.
+
+Preserve the distinction between declarations and definitions for global data.
+
+Do not replace this scheme by permanently removing `static` from production-style symbols.
+
+---
 
 ## C Style
 
-Use the repository's established C style.
+Use the established C style.
 
-The opening brace of a C function definition must be on the same line as the declarator:
+Function opening braces stay on the declarator line:
 
 ```c
 int ctd_example(int value) {
@@ -160,55 +220,22 @@ int ctd_example(int value)
 }
 ```
 
-Additional rules:
+Also:
 
-- Prefer explicit, portable C types where the example requires fixed width.
-- Keep builds warning-clean under the active supported compiler; do not introduce compiler-specific warnings on either MSVC or the available Linux toolchain.
-- Avoid unrelated formatting changes.
-- Do not introduce C++ constructs into C sources.
-- Preserve const-correctness and pointer ownership semantics.
-- Document ownership where a function returns or accepts allocated memory.
-- Keep demo behavior deterministic unless nondeterminism is the feature being tested.
+* keep code valid for the project's declared C language level;
+* prefer fixed-width types when the contract requires fixed width;
+* preserve const-correctness;
+* keep warning-clean builds under the active supported compiler;
+* avoid unrelated formatting changes;
+* do not introduce C++ constructs into C sources;
+* document non-obvious pointer ownership, lifetime, size units, and release rules;
+* avoid nondeterminism unless nondeterminism is itself the tested feature.
 
-## CFFI Build Modes
+---
 
-### Dynamically Linked Wrapper
+## CFFI API-Mode Build Architecture
 
-The dynamic sequence is:
-
-1. Build CTD with `build_ctd.py`.
-2. Build the CFFI wrapper with `build_ctd_wrapper.py`.
-3. Run `ctd_demo.py` or applicable tests.
-
-The exact artifacts are platform-specific.
-
-On Windows with MSVC, the CTD build is expected to produce artifacts such as:
-
-```text
-ctd.dll
-ctd.lib
-ctd.exp
-```
-
-In this case, the `.lib` used by the wrapper is the MSVC import library for `ctd.dll`, not a static copy of the DLL implementation. The generated Python extension is a `*.pyd` file that links against the import library and dispatches calls to `ctd.dll` at runtime.
-
-On Linux, expect the corresponding platform-native shared-library and Python-extension artifacts, normally a shared object for CTD and a Python extension with a platform-tagged `.so` filename. Do not require Windows-only import-library or export-file artifacts.
-
-### Embedded Wrapper
-
-`build_ctd_wrapper_embedded.py` builds the wrapper while compiling `ctd.c` into the Python extension.
-
-This mode must not require a previously built CTD import library. It should retain behavior equivalent to the dynamic mode from the Python caller's perspective unless the experiment intentionally demonstrates a difference.
-
-### Build-Script Responsibility
-
-The wrapper build scripts are responsible for building CFFI wrappers only.
-
-Do not silently make `build_ctd_wrapper.py` build the CTD DLL as an implicit prerequisite. Keep build stages explicit unless the task specifically redesigns orchestration.
-
-## CFFI Configuration
-
-The wrapper scripts revolve around:
+The wrapper builders revolve around:
 
 ```python
 ffibuilder.cdef(...)
@@ -216,49 +243,182 @@ ffibuilder.set_source(...)
 ffibuilder.compile(...)
 ```
 
-Maintain the distinction between their roles:
+Their roles are distinct:
 
-- `cdef()` defines declarations visible through the generated `ffi` and `lib` interfaces.
-- `set_source()` defines the generated extension module, inserted C source snippet, include paths, libraries, library directories, source files, and compiler/linker options.
-- `compile()` generates and builds the native Python extension.
+* `cdef()` defines the declarations represented through `ffi` and `lib`;
+* `set_source()` defines the generated extension translation unit, real header include, sources, macros, include paths, libraries, and link settings;
+* `compile()` generates and builds the native extension.
 
-The source snippet passed to `set_source()` must include the actual C developer header, normally:
+The generated C source must include the real developer header:
 
 ```c
 #include "ctd.h"
 ```
 
-Do not assume `cdef()` parses C implementation sources or follows C preprocessor includes. It parses the declaration text provided to it.
+Do not assume `cdef()` parses `ctd.c` or follows C preprocessor includes.
+
+### Dynamic Wrapper
+
+The normal sequence is:
+
+1. run `build_ctd.py`;
+2. run `build_ctd_wrapper.py`;
+3. import/use `_ctd_wrapper`.
+
+The wrapper is a consumer of the separately built shared CTD library.
+
+On MSVC, distinguish carefully between:
+
+* the standalone static CTD `.lib`;
+* the `.lib` import library associated with `ctd.dll`.
+
+They are different artifacts despite sharing the extension.
+
+On Linux, use the platform-native static archive/shared-library/Python-extension conventions; do not require Windows by-products.
+
+### Embedded Wrapper
+
+`build_ctd_wrapper_embedded.py` compiles `ctd.c` directly into the generated Python extension.
+
+It must not require a prebuilt CTD shared library or import library.
+
+The embedded build intentionally exports CTD symbols from the resulting `.pyd`/`.so` for diagnostic inspection even though those exports are not needed for normal internal wrapper calls.
+
+From Python, dynamic and embedded wrappers should expose equivalent CTD behavior unless a task explicitly studies a difference.
+
+### Build-Script Responsibility
+
+Keep native stages explicit.
+
+Do not silently make the dynamic wrapper builder invoke the standalone CTD builder as an implicit prerequisite unless the task explicitly redesigns orchestration.
+
+Preserve the setuptools/distutils compiler abstraction used by the portable build scripts rather than replacing it with hard-coded MSVC or GCC command scripts.
+
+---
+
+## Supported CFFI Boundary Patterns
+
+Tests and demos are intended as few-shot reference material for coding agents. Prefer clear examples of distinct boundary mechanics over redundant API-name coverage.
+
+Important represented patterns include:
+
+* scalar arguments and returns;
+* enum constants;
+* writable and read-only globals;
+* `ffi.new("T *")` for `OUT` and `INOUT` scalar storage;
+* `ffi.new("T[]", ...)` for caller-owned C arrays;
+* `ffi.NULL` and NULL/count contracts;
+* explicit count/capacity/required-size protocols;
+* `ffi.string()` for copying NUL-terminated C strings;
+* `ffi.unpack()` for copying typed C arrays;
+* `ffi.buffer()` for viewing C memory;
+* `ffi.from_buffer()` for exposing Python-owned buffer storage directly to C;
+* structures returned by value;
+* pointer-to-structure calls;
+* nested structure initialization from Python mappings;
+* fixed-size array fields inside structures;
+* tagged unions;
+* borrowed pointers embedded in output structures;
+* borrowed static returns;
+* CTD-owned allocations with explicit C release;
+* opaque handles with generic or type-specific destruction;
+* synchronous `ffi.callback()` invocation;
+* `ffi.new_handle()` / `ffi.from_handle()` for Python objects passed through `void *`;
+* returned C function pointers.
+
+Do not infer a pointer contract solely from its C spelling. For each pointer establish:
+
+* direction: `IN`, `OUT`, or `INOUT`;
+* shape;
+* nullability;
+* count/capacity and its unit;
+* ownership;
+* lifetime/retention;
+* exact release function, if any;
+* expected output state on failure.
+
+Callbacks and Python-owned pointers in the supported runtime profile are synchronous and not retained after the call. Retained/asynchronous callback systems are outside scope unless explicitly requested.
+
+---
+
+## Ownership Rules
+
+1. `ffi.new()` memory is Python/CFFI-owned. Keep the owning cdata alive while C or any alias uses it. Never pass it to a CTD deallocator.
+2. `ffi.from_buffer()` exposes Python-owned memory; keep the underlying Python buffer alive and compatible with the requested access.
+3. Borrowed C pointers are not freed by Python. Copy them when independent Python lifetime is required.
+4. CTD-owned allocations are released exactly once with the documented release function.
+5. Do not interchange Python/CFFI allocation and CTD allocation/deallocation.
+6. If an output structure contains a pointer aliasing caller storage, keep the caller's owning cdata alive while that alias is used.
+7. Keep callback and handle cdata alive for every C call that may use them.
+8. Use `try/finally` or `yield` fixtures for owned C resources so cleanup occurs even when assertions fail.
+
+---
+
+## Tests
+
+Pytest is the intended test runner.
+
+Important files currently include:
+
+```text
+ctd/tests/conftest.py
+ctd/tests/cffi_types.py
+ctd/tests/test_cdef_header.py
+ctd/tests/test_globals_status_and_scalars.py
+ctd/tests/test_pointers_arrays_and_bytes.py
+ctd/tests/test_strings_structures_and_ownership.py
+ctd/tests/test_cffi_usage_patterns.py
+```
+
+The test suite has two simultaneous purposes:
+
+1. verify CTD contracts;
+2. serve as a compact few-shot catalogue of correct CFFI usage patterns.
+
+When adding tests:
+
+* trace the target declaration into `ctd.c` before deriving expectations;
+* distinguish success, boundary, and meaningful failure cases;
+* use descriptive parameter IDs;
+* use sentinels where output-preservation behavior matters;
+* explicitly model ownership and cleanup;
+* avoid multiplying tests that demonstrate no new contract or CFFI mechanic.
+
+Do not infer behavior from an existing test name and copy it blindly to another API.
+
+---
 
 ## Generated and Build Artifacts
 
-Treat generated outputs as disposable unless a task explicitly targets generation output.
+Generated outputs are disposable unless a task explicitly targets them.
 
-Typical generated artifacts include:
+Typical artifacts include:
 
 ```text
 _ctd_wrapper.c
 build/
-Release/                         # commonly produced by Windows/MSVC builds
-*.obj                            # Windows object files
-*.lib                            # Windows static or import libraries
-*.exp                            # Windows export files
-*.dll                            # Windows shared libraries
-*.pyd                            # Windows Python extensions
-*.o                              # Unix-like object files
-*.a                              # Unix-like static libraries
-*.so                             # Linux shared libraries and Python extensions
+Release/
+*.obj
+*.o
+*.lib
+*.a
+*.exp
+*.dll
+*.so
+*.pyd
+cffi_model.db
 ```
-
-A filename such as `_ctd_wrapper.cp###-win_amd64.pyd` is a Windows-specific example only. Linux and other platforms use their own Python extension suffixes and ABI tags.
 
 Rules:
 
-- Do not hand-edit `_ctd_wrapper.c`; change the CFFI builder input instead.
-- Do not commit generated binaries or intermediate build products unless repository policy explicitly requires them.
-- Do not treat generated files as the authoritative source.
-- Remove or rebuild stale artifacts when validating changes that affect declarations, compiler options, or linkage.
-- Avoid deleting user data or unrelated build outputs.
+* do not hand-edit `_ctd_wrapper.c`;
+* do not treat generated binaries or databases as authoritative source;
+* do not commit build products unless repository policy explicitly requires them;
+* remove only relevant stale generated artifacts when rebuilding;
+* do not delete handwritten source or unrelated user data;
+* treat platform-specific filenames as examples rather than portable requirements.
+
+---
 
 ## Introspection Model
 
@@ -270,174 +430,206 @@ from _ctd_wrapper import ffi, lib
 
 Conceptually:
 
-- `ffi` provides C type information and C data construction/conversion operations.
-- `lib` exposes declared functions, constants, and global variables.
+* `ffi` supplies CFFI declaration/type information and cdata construction/conversion;
+* `lib` exposes functions, constants, and global variables represented in the CDEF declaration model.
 
-The introspection subsystem records top-level CFFI model information in SQLite:
+The introspection subsystem is:
 
-- `ctd_introspect.py` coordinates inspection.
-- `introspect/cffi_model.py` extracts and normalizes CFFI model data.
-- `introspect/database.py` handles persistence.
-- `introspect/schema.sql` defines the database schema.
+```text
+ctd_introspect.py
+    -> introspect/cffi_model.py
+    -> introspect/database.py
+    -> introspect/schema.sql
+```
 
-The current design stores top-level `ffi.CType` information in a `ctypes` table. Nested `ffi.CType` and `_cffi_backend.CField` values may be represented as structured JSON rather than normalized into additional relational tables.
+`cffi_model.py` traverses top-level declarations and recursively records CFFI type properties such as:
 
-Two project-added fields identify each top-level record:
+* `cname`;
+* `kind`;
+* pointer/array item types;
+* structure and union fields;
+* function argument and result types;
+* enum element mappings;
+* recursive references.
 
-- `name`: the C identifier obtained from `ffi.list_types()` or a `lib` attribute;
-- `category`: the originating interface, such as `ffi` or `lib`.
+Nested CFFI model objects may be serialized as deterministic structured values rather than normalized into a large relational schema.
 
-Do not redesign this model casually. Preserve deterministic serialization and stable inspection output. Any schema change must be accompanied by corresponding updates to extraction code and tests or diagnostics.
+`database.py` persists normalized records into SQLite.
+
+Do not redesign the model casually. Schema changes must remain synchronized with extraction/persistence code and applicable diagnostics/tests.
+
+Reflection here means reflection over declarations supplied to CFFI. It is not arbitrary reflection over `ctd.c`.
+
+---
 
 ## Python Style
 
-- Use modern Python type annotations consistent with the repository's supported Python version.
-- Prefer `pathlib.Path` for filesystem paths and preserve correct behavior on both Windows and Linux.
-- Use `subprocess.run(..., check=True)` or explicit return-code handling for build commands.
-- Keep build failures visible; do not suppress compiler or linker diagnostics.
-- Separate pure transformation logic from filesystem and subprocess effects.
-- Add focused functions rather than expanding `main()` into an unstructured procedure.
-- Preserve deterministic output ordering.
-- Avoid new dependencies when the standard library is sufficient.
-- Do not perform network access during normal builds or tests unless the existing environment-bootstrap workflow explicitly requires it.
+* Use modern annotations consistent with the supported Python version.
+* Runtime-generated CFFI values may use the repository's explicit dynamic typing boundary (`CffiValue`).
+* Prefer `pathlib.Path`.
+* Keep build/compiler failures visible.
+* Preserve deterministic ordering in generated diagnostic data.
+* Separate transformations from filesystem/subprocess effects where practical.
+* Prefer focused helper functions over growing a large unstructured `main()`.
+* Avoid new dependencies where the standard library is sufficient.
+* Do not perform network access during normal build/test operation.
 
-## Testing and Validation
+---
 
-Before declaring a change complete, run the narrowest relevant validation and then the broader available checks.
+## Validation
 
-For C or CFFI declaration changes, normally validate both integration modes:
+Run the narrowest relevant checks first, then broader validation when the change affects shared architecture.
 
-1. Clean stale wrapper and native build outputs as needed.
-2. Build the standalone CTD library.
-3. Build the dynamically linked wrapper.
-4. Run the demo and relevant tests.
-5. Build the embedded wrapper.
-6. Run the same demo and relevant tests.
-7. Run introspection if the change affects exposed types, functions, constants, or globals.
+For C declarations, linkage, implementation, or CFFI builder changes, normally validate both wrapper modes.
 
-For Python-only introspection or database changes, run the relevant Python tests and execute the affected diagnostic path against a freshly built wrapper.
+Typical sequence from the repository root:
 
-Do not claim a command passed unless it was actually executed successfully. When the active environment or toolchain is unavailable, report the exact validation that could not be performed.
+```text
+python ctd/src/ctd/build_ctd.py
+python ctd/src/ctd/build_ctd_wrapper.py
+python ctd/src/ctd/ctd_demo.py
+(cd ctd && python -m pytest)
+python ctd/src/ctd/ctd_introspect.py
 
-Discover the repository's actual test command from `pyproject.toml`, test configuration, or existing scripts. Do not invent a test runner. Pytest is the intended Python test framework where tests exist.
+python ctd/src/ctd/build_ctd_wrapper_embedded.py
+python ctd/src/ctd/ctd_demo.py
+(cd ctd && python -m pytest)
+python ctd/src/ctd/ctd_introspect.py
+```
+
+Run consumers in fresh Python processes after replacing one `_ctd_wrapper` build with the other.
+
+For Python-only introspection/database changes, run focused Python tests and the affected diagnostic path against a freshly built wrapper.
+
+Discover actual project commands from `pyproject.toml`, `pytest.ini`, or current scripts rather than inventing a runner.
+
+Never claim validation succeeded unless the command was actually executed successfully. If a platform/toolchain is unavailable, state exactly what was not validated.
+
+---
 
 ## Change Discipline
 
-Codex and other coding agents must follow these rules:
+Agents must:
 
-1. Inspect the relevant files before editing.
-2. Identify whether a file is handwritten, generated, or a build artifact.
-3. Make the smallest coherent change that satisfies the request.
-4. Preserve the dynamic and embedded workflows unless explicitly changing both.
-5. Update declarations, definitions, builders, demos, tests, and documentation together when the contract spans them.
-6. Do not rename established files or interfaces without a concrete need.
-7. Do not introduce a new build system merely for convenience.
-8. Do not replace the project's explicit environment model with generic Python packaging assumptions.
-9. Do not conceal unresolved compiler, linker, or runtime failures with fallback behavior.
-10. Avoid speculative abstractions. This repository exists to evaluate concrete CFFI behavior.
-11. Preserve user-authored comments and experimental alternatives unless they are demonstrably obsolete and removal is requested.
-12. Never rewrite unrelated sections solely for style.
+1. inspect relevant source, declarations, builders, nearby tests, and applicable README material before editing;
+2. identify handwritten source versus generated/build output;
+3. make the smallest coherent change that satisfies the task;
+4. preserve both dynamic and embedded workflows unless explicitly changing their architecture;
+5. update declaration, definition, build configuration, tests, demo, introspection, and documentation together when a contract spans them;
+6. preserve established filenames/interfaces unless a concrete need justifies a rename;
+7. avoid introducing another build system for convenience;
+8. preserve the local-Windows versus cloud-Linux environment model;
+9. expose compiler, linker, import, and runtime failures rather than masking them with fallback behavior;
+10. avoid speculative abstractions unsupported by an immediate project need;
+11. preserve useful user-authored comments and experimental alternatives unless obsolete and removal is appropriate;
+12. avoid unrelated formatting or stylistic rewrites.
 
-## Codex Workflow
+---
 
-For each task:
+## Agent Workflow
 
 ### 1. Establish Scope
 
 Read:
 
-- this file;
-- the relevant source and build files;
-- nearby tests;
-- the corresponding README section.
+* this file;
+* relevant source/build files;
+* nearby tests;
+* the corresponding README section.
 
-State internally which workflow is affected:
+Identify which areas are affected:
 
-- standalone CTD build;
-- dynamic wrapper;
-- embedded wrapper;
-- demo;
-- introspection/database;
-- environment activation.
+```text
+C declaration/implementation
+standalone native build
+dynamic wrapper
+embedded wrapper
+demo
+tests
+introspection/database
+environment
+```
 
 ### 2. Trace the Contract
 
-For a C API change, trace all applicable layers:
+For a C API change, trace:
 
 ```text
 ctd_api.h
-    -> cdef transformation
-    -> generated wrapper declaration
+    -> CDEF transformation
+    -> generated wrapper declaration model
     -> ctd.h / ctd.c
-    -> dynamic or embedded linker inputs
+    -> build/link mode
     -> ffi/lib Python interface
     -> demo/tests/introspection
 ```
 
-For a build change, verify compilation and linking separately under the active platform toolchain.
+For native-build changes, distinguish compilation from linking and verify produced artifacts.
 
-On Windows, distinguish:
+On Windows distinguish object files, static libraries, import libraries, DLLs, and `.pyd` extensions.
 
-- object files;
-- static libraries;
-- import libraries;
-- DLLs;
-- generated `.pyd` extension modules.
-
-On Linux, distinguish:
-
-- object files;
-- static archives;
-- shared libraries;
-- generated Python `.so` extension modules.
+On Linux distinguish object files, static archives, shared libraries, and Python extension `.so` files.
 
 ### 3. Implement
 
-Use targeted edits. Preserve existing naming and architecture. Add comments only where they explain non-obvious CFFI, ABI, linkage, ownership, or Windows-toolchain behavior.
+Use targeted edits and preserve existing naming/architecture.
+
+Add comments when they explain non-obvious CFFI, ABI, linkage, ownership, or platform-toolchain behavior; avoid comments that merely narrate obvious code.
 
 ### 4. Validate
 
-Execute relevant commands in the environment appropriate to the agent: use the already activated environment without alteration on local Windows, or create/install the project environment from `pyproject.toml` in a cloud Linux sandbox. Capture the first meaningful failure and fix its cause rather than layering workarounds.
+Use the environment rules stated at the start of this file.
 
-For linkage changes, inspect both the build command and produced artifacts. Successful compilation alone is insufficient; import and function invocation must also work.
+Fix the first meaningful failure at its cause rather than accumulating workarounds.
+
+For linkage changes, successful compilation alone is insufficient: verify linking, import, and representative invocation as applicable.
 
 ### 5. Report
 
 Summarize:
 
-- files changed;
-- behavioral effect;
-- commands executed;
-- validation results;
-- any unvalidated platform or mode.
+* source files changed;
+* behavioral or architectural effect;
+* commands executed;
+* validation results;
+* any platform or mode not validated.
 
-Keep the report factual. Do not describe generated artifacts as source changes.
+Do not describe regenerated build artifacts as source modifications.
+
+---
 
 ## Documentation Rules
 
-The README is a working exploratory document. Preserve its technical terminology and architecture.
+Keep README and source documentation technically aligned with the current implementation.
 
-When updating documentation:
+In particular:
 
-- distinguish CFFI ABI mode from API mode correctly;
-- distinguish an MSVC import library from a static implementation library;
-- distinguish CDEF parsing from C compiler preprocessing;
-- distinguish CFFI's declaration model from reflection over arbitrary C source;
-- describe dynamic and embedded builds separately;
-- avoid claiming portability that has not been tested;
-- use exact filenames and paths from the current repository.
+* distinguish CFFI API mode from ABI mode;
+* distinguish an MSVC import library from a static implementation library;
+* distinguish internal, plain-external, export, and import linkage;
+* distinguish CDEF transformation from C preprocessing;
+* distinguish CFFI declaration reflection from parsing arbitrary C source;
+* distinguish borrowed, Python-owned, and CTD-owned memory;
+* document dynamic and embedded wrapper modes separately;
+* avoid claiming platform validation that was not actually performed;
+* use current repository filenames and paths.
+
+---
 
 ## Non-Goals Unless Explicitly Requested
 
-Do not expand the task into:
+Do not expand ordinary tasks into:
 
-- a general-purpose C binding generator;
-- libclang-based source parsing;
-- a replacement build system;
-- automatic support for arbitrary C preprocessor input;
-- cross-platform support not validated by the project;
-- normalization of every nested CFFI object into a complex relational schema;
-- permanent export of all private C functions;
-- replacement of CFFI with `ctypes`, SWIG, pybind11, or another bridge.
+* a general-purpose C binding generator;
+* libclang-based source parsing;
+* a replacement native build system;
+* support for arbitrary C preprocessor input;
+* retained/asynchronous Python callbacks;
+* arbitrary cyclic object-graph conversion;
+* allocator interchange between C and Python;
+* permanent export of all private C functions;
+* replacement of CFFI by `ctypes`, SWIG, pybind11, or another bridge;
+* normalization of every nested CFFI value into a complex relational database;
+* unvalidated platform support.
 
-The immediate objective is to study and document a practical, controlled CFFI-based testing workflow.
+The immediate objective is a **practical, controlled, portable CFFI/Pytest reference workflow for testing C code**.
