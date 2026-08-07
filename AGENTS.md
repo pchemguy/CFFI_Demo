@@ -90,8 +90,8 @@ Confirm the actual tree before editing; this list is orientation, not an exhaust
 The remaining sections provide detailed rules for:
 
 1. [C declarations](## C Source and Declaration Architecture), [linkage](## CTD Linkage Model), and [style](## C Style).
-2. CFFI build and declaration handling.
-3. ownership and supported boundary patterns.
+2. [CFFI build and declaration handling](## CFFI API-Mode Build Architecture).
+3. [supported boundary patterns](## Supported CFFI Boundary Patterns) and [ownership](## Ownership Rules).
 4. generated artifacts and introspection.
 5. Python/test style and validation.
 6. coding-agent workflow and change discipline.
@@ -201,24 +201,7 @@ Do not replace this scheme by permanently removing `static` from production-styl
 
 ## C Style
 
-Use the established C style.
-
-Function opening braces stay on the declarator line:
-
-```c
-int ctd_example(int value) {
-    return value;
-}
-```
-
-Do not use:
-
-```c
-int ctd_example(int value)
-{
-    return value;
-}
-```
+Use One True Brace Style (1TBS): opening braces stay on the same line as function declarators and control statements, and else follows the preceding closing brace on the same line. All control blocks must include "{}" even when optional (for blocks containing a single statement).
 
 Also:
 
