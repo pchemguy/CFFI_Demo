@@ -16,6 +16,10 @@ PROGRAM_NAME = "CTD"
 PREFIX = Path(__file__).resolve().parent
 
 CDEF_HEADER = PREFIX / f"{PROGRAM_NAME.lower()}_api.h"
+
+# True: link the wrapper against the target shared library.
+# False: embed the target library in the wrapper and export
+#        its symbols for diagnostic inspection.
 DYNAMIC = False
 
 if DYNAMIC:
