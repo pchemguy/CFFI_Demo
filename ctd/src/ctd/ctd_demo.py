@@ -90,6 +90,9 @@ def demo_globals_and_status_values() -> None:
     print(f"ctd_global_counter after reset: {lib.ctd_global_counter}")
     lib.ctd_global_counter = 40
     print(f"ctd_global_counter after direct assignment: {lib.ctd_global_counter}")
+    lib.ctd_global_counter_reset()
+    print(f"ctd_global_counter after counter reset: {lib.ctd_global_counter}")
+    lib.ctd_global_counter = 40
     print(f"ctd_global_counter_increment(): {lib.ctd_global_counter_increment()}")
     print(f"ctd_global_counter now: {lib.ctd_global_counter}")
     lib.ctd_global_last_status = lib.CTD_ERROR_RANGE
@@ -119,7 +122,9 @@ def demo_scalar_and_value_operations() -> None:
     heading("Scalar operations")
 
     print(f"ctd_add(17, 25): {lib.ctd_add(17, 25)}")
+    print(f"ctd_add(INT_MAX, 1): {lib.ctd_add(2**31 - 1, 1)}")
     print(f"ctd_negate_i32(-123): {lib.ctd_negate_i32(-123)}")
+    print(f"ctd_negate_i32(INT32_MIN): {lib.ctd_negate_i32(-(2**31))}")
     print(f"ctd_add_u64(2**63, 7): {lib.ctd_add_u64(2**63, 7)}")
     print(f"ctd_hypot_squared(3.0, 4.0): {lib.ctd_hypot_squared(3.0, 4.0)}")
 
@@ -229,6 +234,7 @@ def demo_typed_arrays() -> None:
     borrowed = lib.ctd_borrow_sequence_i32(borrowed_count)
     print(f"borrowed sequence: {list(ffi.unpack(borrowed, borrowed_count[0]))}")
     # Pytest equivalent: assert ffi.unpack(borrowed, borrowed_count[0]) == [...]
+    assert list(ffi.unpack(borrowed, borrowed_count[0])) == [2, 3, 5, 7, 11]
     assert list(ffi.unpack(sequence, required_count[0])) == [100, 101, 102, 103, 104]
 
 
@@ -420,6 +426,18 @@ def demo_structures_and_tagged_unions() -> None:
     status = lib.ctd_apply_callback(
         2,
         3,
+        weighted_add_callback,
+        user_data,
+        callback_result,
+    )
+    show_status("ctd_apply_callback()", status)
+    print(f"callback result: {callback_result[0]}")
+
+    weighted_add_callback = ffi.callback("ctd_binary_callback")(weighted_add)
+    callback_result = ffi.new("int *")
+    status = lib.ctd_apply_callback(
+        3,
+        4,
         weighted_add_callback,
         user_data,
         callback_result,
