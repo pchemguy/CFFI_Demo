@@ -14,13 +14,13 @@ __all__ = (
 )
 
 
-PathLike:  TypeAlias = str | Path
-CTypeRow:  TypeAlias = Mapping[str, Any]
+PathLike: TypeAlias = str | Path
+CTypeRow: TypeAlias = Mapping[str, Any]
 CTypeRows: TypeAlias = CTypeRow | Iterable[CTypeRow]
 
 
 class CTypeAttributes(StrEnum):
-    """Column names accepted by the ``attributes`` table."""
+    """Column names accepted by the ``ctypes`` table."""
     ID        = "id"
     NAME      = "name"
     CATEGORY  = "category"
@@ -39,18 +39,6 @@ class CTypeAttributes(StrEnum):
 
 
 def _normalize_value(value: Any) -> Any:
-    """Convert values unsupported by SQLite to strings.
-
-    Values natively accepted by :mod:`sqlite3` are preserved. Any other object
-    is converted by calling :class:`str`.
-    """
-    if value is None or isinstance(value, (str, int, float, bytes)):
-        return value
-
-    return str(value)
-
-
-def _normalize_value(value: Any) -> Any:
     """Convert values unsupported by SQLite to JSON or plain strings.
 
     Values natively accepted by :mod:`sqlite3` are preserved. Other values are
@@ -59,6 +47,8 @@ def _normalize_value(value: Any) -> Any:
     """
     if value is None or isinstance(value, (str, int, float, bytes)):
         return value
+    elif value is isinstance(value, set):
+        return json.dumps(sorted(value))
 
     try:
         return json.dumps(value, ensure_ascii=False)
