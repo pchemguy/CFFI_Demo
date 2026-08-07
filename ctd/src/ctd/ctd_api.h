@@ -158,7 +158,7 @@ CTD_DATA_API ctd_status ctd_global_last_status;
 CTD_DATA_API double ctd_global_scale;
 CTD_DATA_API ctd_point ctd_global_cur_point;
 
-#if defined(CTD_C_API) || defined(CTD_BUILD_STATIC_LIB)
+#if defined(CTD_C_API) || defined(CTD_STATIC_LIB)
 
 CTD_DATA_API const size_t ctd_max_supported_point_count;
 CTD_DATA_API const double ctd_numeric_epsilon;
