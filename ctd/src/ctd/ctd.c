@@ -72,6 +72,7 @@ CTD_API void ctd_globals_reset(void) {
     ctd_global_counter = 0;
     ctd_global_last_status = CTD_OK;
     ctd_global_scale = 1.0;
+    ctd_global_cur_point = {0.0, 0.0};
 }
 
 /* Recommended canonical pattern catalogue - 2. Scalar and value operations. */
