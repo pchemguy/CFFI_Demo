@@ -18,17 +18,18 @@ PREFIX = Path(__file__).resolve().parent
 
 CDEF_HEADER = PREFIX / f"{PROGRAM_NAME.lower()}_api.h"
 
+SOURCES = []
+LIBRARIES = []
+
 # True: link the wrapper against the target shared library.
 # False: embed the target library in the wrapper and export
 #        its symbols for diagnostic inspection.
 DYNAMIC = True
 
 if DYNAMIC:
-    SOURCES = []
-    LIBRARIES = [PROGRAM_NAME.lower()]
+    LIBRARIES.append(PROGRAM_NAME.lower())
 else:
-    SOURCES = [PREFIX / f"{PROGRAM_NAME.lower()}.c"]
-    LIBRARIES = []
+    SOURCES.append(PREFIX / f"{PROGRAM_NAME.lower()}.c")
 
 C_MACROS = [
     (f"{PROGRAM_NAME.upper()}_TEST", None),
