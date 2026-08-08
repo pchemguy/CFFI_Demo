@@ -49,17 +49,16 @@
 
 #    if defined(_WIN32)
 #      define CTD_TEST_API             __declspec(dllexport)
-#      define CTD_TEST_DATA_DEF        __declspec(dllexport)
 #      define CTD_TEST_DATA_API extern __declspec(dllexport)
 #    elif defined(__GNUC__) || defined(__clang__)
 #      define CTD_TEST_API             __attribute__((visibility("default")))
-#      define CTD_TEST_DATA_DEF        __attribute__((visibility("default")))
 #      define CTD_TEST_DATA_API extern __attribute__((visibility("default")))
 #    else
 #      define CTD_TEST_API
-#      define CTD_TEST_DATA_DEF
 #      define CTD_TEST_DATA_API extern
 #    endif
+
+#    define CTD_TEST_DATA_DEF
 
 #  elif defined(CTD_USE_LIB)
 

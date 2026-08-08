@@ -152,6 +152,8 @@ typedef struct ctd_descriptor {
     size_t count;
 } ctd_descriptor;
 
+#ifndef SQLITE_CORE /* Drop declaration of globals when amalgmated */
+
 /* Recommended canonical pattern catalogue - 1. Globals and status values. */
 CTD_TEST_DATA_API int ctd_global_counter;
 CTD_TEST_DATA_API ctd_status ctd_global_last_status;
@@ -172,6 +174,8 @@ CTD_TEST_DATA_API const char ctd_library_name[4];
 CTD_TEST_DATA_API const ctd_point ctd_origin_point;
 
 #endif
+
+#endif /* SQLITE_CORE */
 
 /* RETURN: OUT STRING; non-NULL; borrowed, library-owned, static lifetime. */
 CTD_TEST_API const char *ctd_version(void);
