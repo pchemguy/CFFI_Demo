@@ -1,5 +1,7 @@
 ---
-url: https://chatgpt.com/c/6a75f2ad-1b78-83ed-a53d-56ed97b744d9
+urls:
+  - https://chatgpt.com/c/6a75f2ad-1b78-83ed-a53d-56ed97b744d9
+  - https://chatgpt.com/c/6a74ce73-3018-83eb-a0d1-d1f910585250
 ---
 
 ## 📗 Project Review
