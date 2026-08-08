@@ -629,6 +629,10 @@ docs/                                 exploratory background notes
 
 The local Windows `pyenv/` implementation is user environment-management infrastructure and is outside normal project build and modification scope.
 
+### Documentation
+
+The "docs/" directory contains AI chat history focused on project exploration ("docs/explore/") and implementation ("docs/develop/"). When this project used as an AI reference, it can be placed within the "/cffi-ref/" directory of the target project and coding agent prompt snippet in "docs/develop/Coding Agent Prompt - Testing Snippet - Python-C Interfaces.md" may be incorporated into agent prompt.
+
 ## Introspection workflow
 
 After either wrapper has been freshly built, `_ctd_wrapper` exposes:

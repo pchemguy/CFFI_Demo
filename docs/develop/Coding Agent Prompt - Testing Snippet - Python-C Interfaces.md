@@ -4,12 +4,12 @@ url: https://chatgpt.com/c/6a74ac69-a4b0-83eb-915e-b82fd9a112d7
 
 ## Coding Agent Prompt - Testing Snippet - Python-C Interfaces
 
-The following prompt is intended for a coding agent when this repository is mounted at "/cffi-ref" as a read-only reference:
+The following prompt is intended for a coding agent when this repository is mounted at "/cffi-ref/" as a read-only reference:
 
 ````markdown
 ## Testing Across Python–C Interfaces
 
-Use the demo CTD library in "/cffi-ref" as the reference implementation for designing testable C interfaces and creating CFFI/Pytest tests for other C projects.
+Use the demo CTD library in "/cffi-ref/" as the reference implementation for designing testable C interfaces and creating CFFI/Pytest tests for other C projects.
 
 Before designing tests, inspect the relevant files under "/cffi-ref":
 
