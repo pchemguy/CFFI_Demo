@@ -23,21 +23,21 @@ struct ctd_accumulator {
 };
 
 /* Recommended canonical pattern catalogue - 1. Globals and status values. */
-CTD_DATA_DEF int ctd_global_counter = 0;
-CTD_DATA_DEF ctd_status ctd_global_last_status = CTD_OK;
-CTD_DATA_DEF double ctd_global_scale = 1.0;
-CTD_DATA_DEF ctd_point ctd_global_cur_point = {0.0, 0.0};
+CTD_TEST_DATA_DEF int ctd_global_counter = 0;
+CTD_TEST_DATA_DEF ctd_status ctd_global_last_status = CTD_OK;
+CTD_TEST_DATA_DEF double ctd_global_scale = 1.0;
+CTD_TEST_DATA_DEF ctd_point ctd_global_cur_point = {0.0, 0.0};
 
-CTD_DATA_DEF const size_t ctd_max_supported_point_count = 1024;
-CTD_DATA_DEF const double ctd_numeric_epsilon = 1.0e-12;
-CTD_DATA_DEF const char ctd_library_name[] = "CTD";
-CTD_DATA_DEF const ctd_point ctd_origin_point = {0.0, 0.0};
+CTD_TEST_DATA_DEF const size_t ctd_max_supported_point_count = 1024;
+CTD_TEST_DATA_DEF const double ctd_numeric_epsilon = 1.0e-12;
+CTD_TEST_DATA_DEF const char ctd_library_name[] = "CTD";
+CTD_TEST_DATA_DEF const ctd_point ctd_origin_point = {0.0, 0.0};
 
-CTD_API const char *ctd_version(void) {
+CTD_TEST_API const char *ctd_version(void) {
     return "ctd 1.0";
 }
 
-CTD_API const char *ctd_status_name(ctd_status status) {
+CTD_TEST_API const char *ctd_status_name(ctd_status status) {
     switch (status) {
         case CTD_OK:
             return "CTD_OK";
@@ -56,7 +56,7 @@ CTD_API const char *ctd_status_name(ctd_status status) {
     }
 }
 
-CTD_API int ctd_global_counter_increment(void) {
+CTD_TEST_API int ctd_global_counter_increment(void) {
     if (ctd_global_counter == INT_MAX) {
         return ctd_global_counter;
     }
@@ -64,11 +64,11 @@ CTD_API int ctd_global_counter_increment(void) {
     return ctd_global_counter;
 }
 
-CTD_API void ctd_global_counter_reset(void) {
+CTD_TEST_API void ctd_global_counter_reset(void) {
     ctd_global_counter = 0;
 }
 
-CTD_API void ctd_globals_reset(void) {
+CTD_TEST_API void ctd_globals_reset(void) {
     ctd_global_counter = 0;
     ctd_global_last_status = CTD_OK;
     ctd_global_scale = 1.0;
@@ -76,7 +76,7 @@ CTD_API void ctd_globals_reset(void) {
 }
 
 /* Recommended canonical pattern catalogue - 2. Scalar and value operations. */
-CTD_API int ctd_add(int a, int b) {
+CTD_TEST_API int ctd_add(int a, int b) {
     if (b > 0 && a > INT_MAX - b) {
         return INT_MAX;
     }
@@ -86,22 +86,26 @@ CTD_API int ctd_add(int a, int b) {
     return a + b;
 }
 
-CTD_API int32_t ctd_negate_i32(int32_t value) {
+CTD_TEST_API int32_t ctd_negate_i32(int32_t value) {
     if (value == INT32_MIN) {
         return INT32_MAX;
     }
     return -value;
 }
 
-CTD_API uint64_t ctd_add_u64(uint64_t a, uint64_t b) {
+CTD_TEST_API uint64_t ctd_add_u64(uint64_t a, uint64_t b) {
     return a + b;
 }
 
-CTD_API double ctd_hypot_squared(double x, double y) {
+CTD_TEST_API double ctd_hypot_squared(double x, double y) {
     return x * x + y * y;
 }
 
-CTD_API ctd_status ctd_divide(double numerator, double denominator, double *result) {
+CTD_TEST_API ctd_status ctd_divide(
+    double numerator, 
+    double denominator, 
+    double *result
+) {
     if (result == NULL) {
         return CTD_ERROR_NULL;
     }
@@ -115,7 +119,7 @@ CTD_API ctd_status ctd_divide(double numerator, double denominator, double *resu
 }
 
 /* Recommended canonical pattern catalogue - 3. Scalar pointer operations. */
-CTD_API ctd_status ctd_get_magic(int32_t *result) {
+CTD_TEST_API ctd_status ctd_get_magic(int32_t *result) {
     if (result == NULL) {
         return CTD_ERROR_NULL;
     }
@@ -124,7 +128,7 @@ CTD_API ctd_status ctd_get_magic(int32_t *result) {
     return CTD_OK;
 }
 
-CTD_API ctd_status ctd_increment(int32_t *value) {
+CTD_TEST_API ctd_status ctd_increment(int32_t *value) {
     if (value == NULL) {
         return CTD_ERROR_NULL;
     }
@@ -137,7 +141,7 @@ CTD_API ctd_status ctd_increment(int32_t *value) {
     return CTD_OK;
 }
 
-CTD_API ctd_status ctd_swap_i32(int32_t *a, int32_t *b) {
+CTD_TEST_API ctd_status ctd_swap_i32(int32_t *a, int32_t *b) {
     int32_t temporary;
 
     if (a == NULL || b == NULL) {
@@ -152,7 +156,11 @@ CTD_API ctd_status ctd_swap_i32(int32_t *a, int32_t *b) {
 }
 
 /* Recommended canonical pattern catalogue - 4. Typed arrays. */
-CTD_API ctd_status ctd_sum_i32(const int32_t *values, size_t count, int64_t *result) {
+CTD_TEST_API ctd_status ctd_sum_i32(
+    const int32_t *values,
+    size_t count,
+    int64_t *result
+) {
     size_t index;
     int64_t sum = 0;
 
@@ -176,7 +184,7 @@ CTD_API ctd_status ctd_sum_i32(const int32_t *values, size_t count, int64_t *res
     return CTD_OK;
 }
 
-CTD_API ctd_status ctd_reverse_i32(int32_t *values, size_t count) {
+CTD_TEST_API ctd_status ctd_reverse_i32(int32_t *values, size_t count) {
     size_t left;
     size_t right;
     int32_t temporary;
@@ -204,7 +212,7 @@ CTD_API ctd_status ctd_reverse_i32(int32_t *values, size_t count) {
     return CTD_OK;
 }
 
-CTD_API ctd_status ctd_scale_i32(int32_t *values, size_t count, int32_t factor) {
+CTD_TEST_API ctd_status ctd_scale_i32(int32_t *values, size_t count, int32_t factor) {
     size_t index;
 
     if (values == NULL && count != 0) {
@@ -224,7 +232,7 @@ CTD_API ctd_status ctd_scale_i32(int32_t *values, size_t count, int32_t factor) 
     return CTD_OK;
 }
 
-CTD_API ctd_status ctd_compute_stats_i32(
+CTD_TEST_API ctd_status ctd_compute_stats_i32(
     const int32_t *values,
     size_t count,
     ctd_stats *result
@@ -275,7 +283,7 @@ CTD_API ctd_status ctd_compute_stats_i32(
     return CTD_OK;
 }
 
-CTD_API ctd_status ctd_make_sequence_i32(
+CTD_TEST_API ctd_status ctd_make_sequence_i32(
     int32_t start,
     size_t count,
     int32_t *buffer,
@@ -315,7 +323,7 @@ CTD_API ctd_status ctd_make_sequence_i32(
     return CTD_OK;
 }
 
-CTD_API int32_t *ctd_alloc_sequence_i32(int32_t start, size_t count) {
+CTD_TEST_API int32_t *ctd_alloc_sequence_i32(int32_t start, size_t count) {
     int32_t *result;
     size_t index;
 
@@ -345,7 +353,7 @@ CTD_API int32_t *ctd_alloc_sequence_i32(int32_t start, size_t count) {
     return result;
 }
 
-CTD_API const int32_t *ctd_borrow_sequence_i32(size_t *count) {
+CTD_TEST_API const int32_t *ctd_borrow_sequence_i32(size_t *count) {
     static const int32_t values[] = {2, 3, 5, 7, 11};
 
     if (count == NULL) {
@@ -356,7 +364,7 @@ CTD_API const int32_t *ctd_borrow_sequence_i32(size_t *count) {
 }
 
 /* Recommended canonical pattern catalogue - 5. Byte buffers. */
-CTD_API ctd_status ctd_copy_bytes(
+CTD_TEST_API ctd_status ctd_copy_bytes(
     const uint8_t *source,
     size_t source_count,
     uint8_t *destination,
@@ -385,7 +393,7 @@ CTD_API ctd_status ctd_copy_bytes(
     return CTD_OK;
 }
 
-CTD_API ctd_status ctd_xor_bytes(uint8_t *buffer, size_t count, uint8_t mask) {
+CTD_TEST_API ctd_status ctd_xor_bytes(uint8_t *buffer, size_t count, uint8_t mask) {
     size_t index;
 
     if (buffer == NULL && count != 0) {
@@ -399,7 +407,7 @@ CTD_API ctd_status ctd_xor_bytes(uint8_t *buffer, size_t count, uint8_t mask) {
     return CTD_OK;
 }
 
-CTD_API ctd_status ctd_checksum_bytes(
+CTD_TEST_API ctd_status ctd_checksum_bytes(
     const uint8_t *bytes,
     size_t length,
     uint32_t *result
@@ -418,7 +426,7 @@ CTD_API ctd_status ctd_checksum_bytes(
 }
 
 /* Recommended canonical pattern catalogue - 6. Strings. */
-CTD_API size_t ctd_utf8_byte_size(const char *text) {
+CTD_TEST_API size_t ctd_utf8_byte_size(const char *text) {
     if (text == NULL) {
         return 0;
     }
@@ -426,7 +434,7 @@ CTD_API size_t ctd_utf8_byte_size(const char *text) {
     return strlen(text);
 }
 
-CTD_API const char *ctd_select_static_string(int selector) {
+CTD_TEST_API const char *ctd_select_static_string(int selector) {
     switch (selector) {
         case 0:
             return "zero";
@@ -439,7 +447,7 @@ CTD_API const char *ctd_select_static_string(int selector) {
     }
 }
 
-CTD_API char *ctd_alloc_greeting(const char *name) {
+CTD_TEST_API char *ctd_alloc_greeting(const char *name) {
     static const char prefix[] = "Hello, ";
     static const char suffix[] = "!";
     size_t prefix_size = sizeof(prefix) - 1;
@@ -473,7 +481,7 @@ CTD_API char *ctd_alloc_greeting(const char *name) {
     return result;
 }
 
-CTD_API ctd_status ctd_ascii_upper(char *buffer, size_t capacity) {
+CTD_TEST_API ctd_status ctd_ascii_upper(char *buffer, size_t capacity) {
     size_t index;
     char *terminator;
 
@@ -497,7 +505,7 @@ CTD_API ctd_status ctd_ascii_upper(char *buffer, size_t capacity) {
     return CTD_OK;
 }
 
-CTD_API ctd_status ctd_copy_string(
+CTD_TEST_API ctd_status ctd_copy_string(
     const char *source,
     char *destination,
     size_t destination_capacity,
@@ -525,7 +533,7 @@ CTD_API ctd_status ctd_copy_string(
 }
 
 /* Recommended canonical pattern catalogue - 7. Structures and tagged unions. */
-CTD_API ctd_point ctd_point_make(double x, double y) {
+CTD_TEST_API ctd_point ctd_point_make(double x, double y) {
     ctd_point result;
 
     result.x = x;
@@ -534,7 +542,7 @@ CTD_API ctd_point ctd_point_make(double x, double y) {
     return result;
 }
 
-CTD_API ctd_point ctd_point_add(ctd_point a, ctd_point b) {
+CTD_TEST_API ctd_point ctd_point_add(ctd_point a, ctd_point b) {
     ctd_point result;
 
     result.x = a.x + b.x;
@@ -543,11 +551,11 @@ CTD_API ctd_point ctd_point_add(ctd_point a, ctd_point b) {
     return result;
 }
 
-CTD_API double ctd_point_dot(const ctd_point *a, const ctd_point *b) {
+CTD_TEST_API double ctd_point_dot(const ctd_point *a, const ctd_point *b) {
     return a->x * b->x + a->y * b->y;
 }
 
-CTD_API ctd_status ctd_point_translate(ctd_point *point, double dx, double dy) {
+CTD_TEST_API ctd_status ctd_point_translate(ctd_point *point, double dx, double dy) {
     if (point == NULL) {
         return CTD_ERROR_NULL;
     }
@@ -558,7 +566,7 @@ CTD_API ctd_status ctd_point_translate(ctd_point *point, double dx, double dy) {
     return CTD_OK;
 }
 
-CTD_API ctd_status ctd_record_initialize(
+CTD_TEST_API ctd_status ctd_record_initialize(
     ctd_record *record,
     int32_t id,
     const char *name
@@ -587,7 +595,7 @@ CTD_API ctd_status ctd_record_initialize(
     return CTD_OK;
 }
 
-CTD_API ctd_value ctd_value_from_i64(int64_t value) {
+CTD_TEST_API ctd_value ctd_value_from_i64(int64_t value) {
     ctd_value result;
 
     result.kind = CTD_NUMBER_I64;
@@ -596,7 +604,7 @@ CTD_API ctd_value ctd_value_from_i64(int64_t value) {
     return result;
 }
 
-CTD_API ctd_value ctd_value_from_f64(double value) {
+CTD_TEST_API ctd_value ctd_value_from_f64(double value) {
     ctd_value result;
 
     result.kind = CTD_NUMBER_F64;
@@ -605,7 +613,7 @@ CTD_API ctd_value ctd_value_from_f64(double value) {
     return result;
 }
 
-CTD_API ctd_status ctd_value_as_f64(const ctd_value *value, double *result) {
+CTD_TEST_API ctd_status ctd_value_as_f64(const ctd_value *value, double *result) {
     if (value == NULL || result == NULL) {
         return CTD_ERROR_NULL;
     }
@@ -624,13 +632,13 @@ CTD_API ctd_status ctd_value_as_f64(const ctd_value *value, double *result) {
     }
 }
 
-CTD_API const ctd_config *ctd_default_config(void) {
+CTD_TEST_API const ctd_config *ctd_default_config(void) {
     static const ctd_config config = {{0.0, 100.0}, CTD_RANGE_CLAMP};
 
     return &config;
 }
 
-CTD_API ctd_status ctd_range_apply(
+CTD_TEST_API ctd_status ctd_range_apply(
     const ctd_config *config,
     double value,
     double *result
@@ -660,7 +668,7 @@ CTD_API ctd_status ctd_range_apply(
     return CTD_OK;
 }
 
-CTD_API ctd_status ctd_describe_i32(
+CTD_TEST_API ctd_status ctd_describe_i32(
     const int32_t *values,
     size_t count,
     ctd_descriptor *result
@@ -675,7 +683,7 @@ CTD_API ctd_status ctd_describe_i32(
     return CTD_OK;
 }
 
-CTD_API const ctd_descriptor *ctd_static_descriptor(void) {
+CTD_TEST_API const ctd_descriptor *ctd_static_descriptor(void) {
     static const int32_t values[] = {8, 13, 21};
     static const char message[] = "static Fibonacci descriptor";
     static const ctd_descriptor descriptor = {
@@ -704,7 +712,7 @@ static int binary_operation_multiply(int left, int right) {
     return (int)product;
 }
 
-CTD_API ctd_status ctd_apply_callback(
+CTD_TEST_API ctd_status ctd_apply_callback(
     int left,
     int right,
     ctd_binary_callback callback,
@@ -719,7 +727,7 @@ CTD_API ctd_status ctd_apply_callback(
     return CTD_OK;
 }
 
-CTD_API ctd_binary_operation ctd_get_binary_operation(
+CTD_TEST_API ctd_binary_operation ctd_get_binary_operation(
     ctd_binary_operation_kind operation_kind
 ) {
     switch (operation_kind) {
@@ -733,7 +741,7 @@ CTD_API ctd_binary_operation ctd_get_binary_operation(
 }
 
 /* Recommended canonical pattern catalogue - 8. Opaque handles and release. */
-CTD_API ctd_counter *ctd_counter_create(int initial_value) {
+CTD_TEST_API ctd_counter *ctd_counter_create(int initial_value) {
     ctd_counter *counter;
 
     counter = (ctd_counter *)malloc(sizeof(*counter));
@@ -746,7 +754,7 @@ CTD_API ctd_counter *ctd_counter_create(int initial_value) {
     return counter;
 }
 
-CTD_API ctd_status ctd_counter_get(const ctd_counter *counter, int *result) {
+CTD_TEST_API ctd_status ctd_counter_get(const ctd_counter *counter, int *result) {
     if (counter == NULL || result == NULL) {
         return CTD_ERROR_NULL;
     }
@@ -755,7 +763,7 @@ CTD_API ctd_status ctd_counter_get(const ctd_counter *counter, int *result) {
     return CTD_OK;
 }
 
-CTD_API ctd_status ctd_counter_add(ctd_counter *counter, int amount, int *result) {
+CTD_TEST_API ctd_status ctd_counter_add(ctd_counter *counter, int amount, int *result) {
     if (counter == NULL || result == NULL) {
         return CTD_ERROR_NULL;
     }
@@ -771,7 +779,7 @@ CTD_API ctd_status ctd_counter_add(ctd_counter *counter, int amount, int *result
     return CTD_OK;
 }
 
-CTD_API ctd_accumulator *ctd_accumulator_create(size_t capacity) {
+CTD_TEST_API ctd_accumulator *ctd_accumulator_create(size_t capacity) {
     ctd_accumulator *accumulator;
 
     if (capacity > SIZE_MAX / sizeof(int32_t)) {
@@ -794,7 +802,10 @@ CTD_API ctd_accumulator *ctd_accumulator_create(size_t capacity) {
     return accumulator;
 }
 
-CTD_API ctd_status ctd_accumulator_add(ctd_accumulator *accumulator, int32_t value) {
+CTD_TEST_API ctd_status ctd_accumulator_add(
+    ctd_accumulator *accumulator,
+    int32_t value
+) {
     if (accumulator == NULL) {
         return CTD_ERROR_NULL;
     }
@@ -811,7 +822,7 @@ CTD_API ctd_status ctd_accumulator_add(ctd_accumulator *accumulator, int32_t val
     return CTD_OK;
 }
 
-CTD_API ctd_status ctd_accumulator_get(
+CTD_TEST_API ctd_status ctd_accumulator_get(
     const ctd_accumulator *accumulator,
     int64_t *result
 ) {
@@ -822,7 +833,7 @@ CTD_API ctd_status ctd_accumulator_get(
     return CTD_OK;
 }
 
-CTD_API void ctd_accumulator_destroy(ctd_accumulator *accumulator) {
+CTD_TEST_API void ctd_accumulator_destroy(ctd_accumulator *accumulator) {
     if (accumulator == NULL) {
         return;
     }
@@ -830,6 +841,6 @@ CTD_API void ctd_accumulator_destroy(ctd_accumulator *accumulator) {
     ctd_free(accumulator);
 }
 
-CTD_API void ctd_free(void *pointer) {
+CTD_TEST_API void ctd_free(void *pointer) {
     free(pointer);
 }

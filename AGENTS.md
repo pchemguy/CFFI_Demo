@@ -155,7 +155,7 @@ The current declaration catalogue is constrained so that C-only preprocessor wra
 #define
 ```
 
-and removes API prefixes from declarations. `CTD_DATA_API` declarations become ordinary `extern` declarations for CDEF purposes.
+and removes API prefixes from declarations. `CTD_TEST_DATA_API` declarations become ordinary `extern` declarations for CDEF purposes.
 
 This is **not a general C preprocessor**.
 
@@ -181,16 +181,16 @@ The conceptual modes are:
 Typical macros include:
 
 ```text
-CTD_API
-CTD_DATA_API
-CTD_DATA_DEF
+CTD_TEST_API
+CTD_TEST_DATA_API
+CTD_TEST_DATA_DEF
 ```
 
 On Windows shared-library builds these may expand to `__declspec(dllexport)` or `__declspec(dllimport)`. On GCC/Clang shared-library producers, default-visibility attributes may be used.
 
 A static implementation library does **not** require DLL import/export or ELF visibility attributes; it requires ordinary external linkage.
 
-Some `const` global declarations are omitted from internal/static declaration mode because an uninitialized file-scope `static const` declaration is not the desired definition pattern. Their initialized `CTD_DATA_DEF` definitions remain in `ctd.c`.
+Some `const` global declarations are omitted from internal/static declaration mode because an uninitialized file-scope `static const` declaration is not the desired definition pattern. Their initialized `CTD_TEST_DATA_DEF` definitions remain in `ctd.c`.
 
 Preserve the distinction between declarations and definitions for global data.
 

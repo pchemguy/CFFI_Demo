@@ -72,11 +72,11 @@ def link_flags(compiler_type: str, import_library: Path | None) -> list[str]:
 def macros(shared: bool) -> list[tuple[str] | tuple[str, str | None]]:
     if shared:
         macro_list: list[tuple[str] | tuple[str, str | None]] = [
-            ("CTD_C_API", None),
+            ("CTD_TEST", None),
             ("CTD_BUILD_LIB", None),
         ]
     else:
-        macro_list = [("CTD_STATIC_LIB", None)]
+        macro_list = [("CTD_BUILD_STATIC_LIB", None)]
     return macro_list
 
 

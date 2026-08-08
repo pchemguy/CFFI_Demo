@@ -7,7 +7,7 @@
 
 /*
 ** This declaration catalogue is included by ctd.h, which supplies
-** CTD_API and CTD_DATA_API, and is not an independent C client header.
+** CTD_TEST_API and CTD_TEST_DATA_API, and is not an independent C client header.
 **
 
 
@@ -153,43 +153,49 @@ typedef struct ctd_descriptor {
 } ctd_descriptor;
 
 /* Recommended canonical pattern catalogue - 1. Globals and status values. */
-CTD_DATA_API int ctd_global_counter;
-CTD_DATA_API ctd_status ctd_global_last_status;
-CTD_DATA_API double ctd_global_scale;
-CTD_DATA_API ctd_point ctd_global_cur_point;
+CTD_TEST_DATA_API int ctd_global_counter;
+CTD_TEST_DATA_API ctd_status ctd_global_last_status;
+CTD_TEST_DATA_API double ctd_global_scale;
+CTD_TEST_DATA_API ctd_point ctd_global_cur_point;
 
-#if defined(CTD_C_API) || defined(CTD_STATIC_LIB)
+/*
+** Do not emit declarations for static const symbols in internal-linkage mode.
+** Their initialized definitions in ctd.c are the declarations/definitions for
+** that mode; uninitialized file-scope static const declarations trigger MSVC
+** warnings and are unnecessary.
+*/
+#if defined(CTD_TEST) || defined(CTD_BUILD_STATIC_LIB)
 
-CTD_DATA_API const size_t ctd_max_supported_point_count;
-CTD_DATA_API const double ctd_numeric_epsilon;
-CTD_DATA_API const char ctd_library_name[4];
-CTD_DATA_API const ctd_point ctd_origin_point;
+CTD_TEST_DATA_API const size_t ctd_max_supported_point_count;
+CTD_TEST_DATA_API const double ctd_numeric_epsilon;
+CTD_TEST_DATA_API const char ctd_library_name[4];
+CTD_TEST_DATA_API const ctd_point ctd_origin_point;
 
 #endif
 
 /* RETURN: OUT STRING; non-NULL; borrowed, library-owned, static lifetime. */
-CTD_API const char *ctd_version(void);
+CTD_TEST_API const char *ctd_version(void);
 /* RETURN: OUT STRING; non-NULL; borrowed, library-owned, static lifetime. */
-CTD_API const char *ctd_status_name(ctd_status status);
-CTD_API int ctd_global_counter_increment(void);
-CTD_API void ctd_global_counter_reset(void);
-CTD_API void ctd_globals_reset(void);
+CTD_TEST_API const char *ctd_status_name(ctd_status status);
+CTD_TEST_API int ctd_global_counter_increment(void);
+CTD_TEST_API void ctd_global_counter_reset(void);
+CTD_TEST_API void ctd_globals_reset(void);
 
 /* Recommended canonical pattern catalogue - 2. Scalar and value operations. */
 /* Saturates at INT_MIN/INT_MAX when the mathematical sum is out of range. */
-CTD_API int ctd_add(int a, int b);
+CTD_TEST_API int ctd_add(int a, int b);
 /* Saturates at INT32_MAX when value is INT32_MIN. */
-CTD_API int32_t ctd_negate_i32(int32_t value);
-CTD_API uint64_t ctd_add_u64(uint64_t a, uint64_t b);
+CTD_TEST_API int32_t ctd_negate_i32(int32_t value);
+CTD_TEST_API uint64_t ctd_add_u64(uint64_t a, uint64_t b);
 /*
 ** Computes x*x + y*y using ordinary C double arithmetic. NaNs and infinities
 ** propagate according to the implementation's floating-point environment;
 ** finite inputs may overflow to positive infinity.
 */
-CTD_API double ctd_hypot_squared(double x, double y);
+CTD_TEST_API double ctd_hypot_squared(double x, double y);
 
 /* result: OUT SCALAR; non-NULL; not retained; caller-owned; no size unit. */
-CTD_API ctd_status ctd_divide(
+CTD_TEST_API ctd_status ctd_divide(
     double numerator,
     double denominator,
     double *result
@@ -197,11 +203,11 @@ CTD_API ctd_status ctd_divide(
 
 /* Recommended canonical pattern catalogue - 3. Scalar pointer operations. */
 /* result: OUT SCALAR; non-NULL; not retained; caller-owned; no size unit. */
-CTD_API ctd_status ctd_get_magic(int32_t *result);
+CTD_TEST_API ctd_status ctd_get_magic(int32_t *result);
 /* value: INOUT SCALAR; non-NULL; not retained; caller-owned; no size unit. */
-CTD_API ctd_status ctd_increment(int32_t *value);
+CTD_TEST_API ctd_status ctd_increment(int32_t *value);
 /* a, b: INOUT SCALAR; non-NULL; not retained; caller-owned; no size unit. */
-CTD_API ctd_status ctd_swap_i32(int32_t *a, int32_t *b);
+CTD_TEST_API ctd_status ctd_swap_i32(int32_t *a, int32_t *b);
 
 /* Recommended canonical pattern catalogue - 4. Typed arrays. */
 /*
@@ -209,22 +215,26 @@ CTD_API ctd_status ctd_swap_i32(int32_t *a, int32_t *b);
 ** count unit: int32_t elements.
 ** result: OUT SCALAR; non-NULL; not retained; caller-owned; no size unit.
 */
-CTD_API ctd_status ctd_sum_i32(const int32_t *values, size_t count, int64_t *result);
+CTD_TEST_API ctd_status ctd_sum_i32(
+    const int32_t *values, 
+    size_t count, 
+    int64_t *result
+);
 
 /* values: INOUT ARRAY; NULL only when count is zero; not retained;
 ** caller-owned; count unit: int32_t elements. */
-CTD_API ctd_status ctd_reverse_i32(int32_t *values, size_t count);
+CTD_TEST_API ctd_status ctd_reverse_i32(int32_t *values, size_t count);
 
 /* values: INOUT ARRAY; NULL only when count is zero; unchanged on failure;
 ** caller-owned; count unit: int32_t elements. */
-CTD_API ctd_status ctd_scale_i32(int32_t *values, size_t count, int32_t factor);
+CTD_TEST_API ctd_status ctd_scale_i32(int32_t *values, size_t count, int32_t factor);
 
 /*
 ** values: IN ARRAY; non-NULL; not retained; caller-owned; count unit: int32_t
 ** elements (count must be greater than zero).
 ** result: OUT STRUCT; non-NULL; not retained; caller-owned; no size unit.
 */
-CTD_API ctd_status ctd_compute_stats_i32(
+CTD_TEST_API ctd_status ctd_compute_stats_i32(
     const int32_t *values,
     size_t count,
     ctd_stats *result
@@ -236,7 +246,7 @@ CTD_API ctd_status ctd_compute_stats_i32(
 ** required_count: OUT SCALAR; non-NULL; not retained; caller-owned; value unit:
 ** int32_t elements. count unit: int32_t elements.
 */
-CTD_API ctd_status ctd_make_sequence_i32(
+CTD_TEST_API ctd_status ctd_make_sequence_i32(
     int32_t start,
     size_t count,
     int32_t *buffer,
@@ -246,12 +256,12 @@ CTD_API ctd_status ctd_make_sequence_i32(
 
 /* RETURN: OUT ARRAY; NULL on zero count or failure; not retained; caller-owned
 ** after return; count unit: int32_t elements; release with ctd_free(). */
-CTD_API int32_t *ctd_alloc_sequence_i32(int32_t start, size_t count);
+CTD_TEST_API int32_t *ctd_alloc_sequence_i32(int32_t start, size_t count);
 
 /* count: OUT SCALAR; non-NULL; receives an element count.
 ** RETURN: OUT ARRAY; non-NULL; borrowed library-owned static lifetime; the
 ** returned int32_t elements must not be modified or freed. */
-CTD_API const int32_t *ctd_borrow_sequence_i32(size_t *count);
+CTD_TEST_API const int32_t *ctd_borrow_sequence_i32(size_t *count);
 
 /* Recommended canonical pattern catalogue - 5. Byte buffers. */
 /*
@@ -262,7 +272,7 @@ CTD_API const int32_t *ctd_borrow_sequence_i32(size_t *count);
 ** required_count: OUT SCALAR; non-NULL; not retained; caller-owned; value
 ** unit: bytes.
 */
-CTD_API ctd_status ctd_copy_bytes(
+CTD_TEST_API ctd_status ctd_copy_bytes(
     const uint8_t *source,
     size_t source_count,
     uint8_t *destination,
@@ -272,12 +282,12 @@ CTD_API ctd_status ctd_copy_bytes(
 
 /* buffer: INOUT BUFFER; NULL only when count is zero; not retained;
 ** caller-owned; count unit: bytes. */
-CTD_API ctd_status ctd_xor_bytes(uint8_t *buffer, size_t count, uint8_t mask);
+CTD_TEST_API ctd_status ctd_xor_bytes(uint8_t *buffer, size_t count, uint8_t mask);
 
 /* bytes: IN BUFFER; NULL only when length is zero; not retained; caller-owned;
 ** length unit: bytes. result: OUT SCALAR; non-NULL and unchanged on failure;
 ** value is the sum of all bytes modulo 2^32. */
-CTD_API ctd_status ctd_checksum_bytes(
+CTD_TEST_API ctd_status ctd_checksum_bytes(
     const uint8_t *bytes,
     size_t length,
     uint32_t *result
@@ -287,18 +297,18 @@ CTD_API ctd_status ctd_checksum_bytes(
 /* text: IN UTF-8 STRING; nullable; not retained; caller-owned; size inferred
 ** by NUL. RETURN is the number of encoded bytes before NUL, not Unicode code
 ** points. Embedded zero bytes therefore require an explicit-length byte API. */
-CTD_API size_t ctd_utf8_byte_size(const char *text);
+CTD_TEST_API size_t ctd_utf8_byte_size(const char *text);
 /* RETURN: OUT STRING; nullable; not retained; borrowed library-owned static
 ** memory; size inferred by NUL; must not be freed. */
-CTD_API const char *ctd_select_static_string(int selector);
+CTD_TEST_API const char *ctd_select_static_string(int selector);
 /* name: IN STRING; non-NULL; not retained; caller-owned; size inferred by NUL.
 ** RETURN: OUT STRING; NULL on failure; not retained; caller-owned after return;
 ** size inferred by NUL; release with ctd_free(). */
-CTD_API char *ctd_alloc_greeting(const char *name);
+CTD_TEST_API char *ctd_alloc_greeting(const char *name);
 
 /* buffer: INOUT STRING; non-NULL; not retained; caller-owned; capacity unit:
 ** bytes including the terminating NUL. */
-CTD_API ctd_status ctd_ascii_upper(char *buffer, size_t capacity);
+CTD_TEST_API ctd_status ctd_ascii_upper(char *buffer, size_t capacity);
 
 /*
 ** source: IN STRING; non-NULL; not retained; caller-owned; size inferred by NUL.
@@ -307,7 +317,7 @@ CTD_API ctd_status ctd_ascii_upper(char *buffer, size_t capacity);
 ** required_size: OUT SCALAR; non-NULL; not retained; caller-owned; value unit:
 ** bytes including the terminating NUL.
 */
-CTD_API ctd_status ctd_copy_string(
+CTD_TEST_API ctd_status ctd_copy_string(
     const char *source,
     char *destination,
     size_t destination_capacity,
@@ -315,32 +325,32 @@ CTD_API ctd_status ctd_copy_string(
 );
 
 /* Recommended canonical pattern catalogue - 7. Structures and tagged unions. */
-CTD_API ctd_point ctd_point_make(double x, double y);
-CTD_API ctd_point ctd_point_add(ctd_point a, ctd_point b);
+CTD_TEST_API ctd_point ctd_point_make(double x, double y);
+CTD_TEST_API ctd_point ctd_point_add(ctd_point a, ctd_point b);
 /* a, b: IN STRUCT; non-NULL; not retained; caller-owned; no size unit. */
-CTD_API double ctd_point_dot(const ctd_point *a, const ctd_point *b);
+CTD_TEST_API double ctd_point_dot(const ctd_point *a, const ctd_point *b);
 /* point: INOUT STRUCT; non-NULL; not retained; caller-owned; no size unit. */
-CTD_API ctd_status ctd_point_translate(ctd_point *point, double dx, double dy);
+CTD_TEST_API ctd_status ctd_point_translate(ctd_point *point, double dx, double dy);
 
 /* record: OUT STRUCT; non-NULL; not retained; caller-owned; no size unit.
 ** name: IN STRING; non-NULL; not retained; caller-owned; size inferred by NUL. */
-CTD_API ctd_status ctd_record_initialize(
+CTD_TEST_API ctd_status ctd_record_initialize(
     ctd_record *record,
     int32_t id,
     const char *name
 );
 
-CTD_API ctd_value ctd_value_from_i64(int64_t value);
-CTD_API ctd_value ctd_value_from_f64(double value);
+CTD_TEST_API ctd_value ctd_value_from_i64(int64_t value);
+CTD_TEST_API ctd_value ctd_value_from_f64(double value);
 /* value: IN STRUCT; non-NULL; not retained; caller-owned; no size unit.
 ** result: OUT SCALAR; non-NULL; not retained; caller-owned; no size unit. */
-CTD_API ctd_status ctd_value_as_f64(const ctd_value *value, double *result);
+CTD_TEST_API ctd_status ctd_value_as_f64(const ctd_value *value, double *result);
 
 /* RETURN: OUT STRUCT; non-NULL; borrowed library-owned static lifetime. */
-CTD_API const ctd_config *ctd_default_config(void);
+CTD_TEST_API const ctd_config *ctd_default_config(void);
 /* config: IN STRUCT; non-NULL; not retained; caller-owned; no size unit.
 ** result: OUT SCALAR; non-NULL; not retained; caller-owned; no size unit. */
-CTD_API ctd_status ctd_range_apply(
+CTD_TEST_API ctd_status ctd_range_apply(
     const ctd_config *config,
     double value,
     double *result
@@ -350,7 +360,7 @@ CTD_API ctd_status ctd_range_apply(
 ** every access through result->values.
 ** result: OUT STRUCT; non-NULL; its message is borrowed static storage and its
 ** values member aliases the input while that input remains alive. */
-CTD_API ctd_status ctd_describe_i32(
+CTD_TEST_API ctd_status ctd_describe_i32(
     const int32_t *values,
     size_t count,
     ctd_descriptor *result
@@ -359,14 +369,14 @@ CTD_API ctd_status ctd_describe_i32(
 /* RETURN: OUT DESCRIPTOR STRUCT; non-NULL; borrowed library-owned static
 ** lifetime. The structure, message, and values fields are all static and
 ** read-only; count is measured in int32_t elements. Nothing may be freed. */
-CTD_API const ctd_descriptor *ctd_static_descriptor(void);
+CTD_TEST_API const ctd_descriptor *ctd_static_descriptor(void);
 
 /* Advanced callback and returned-function-pointer examples. */
 /* callback: IN OPAQUE callable pointer; non-NULL; not retained; caller-owned;
 ** no size unit. user_data: IN OPAQUE; nullable; not retained; caller-owned; no
 ** size unit. result: OUT SCALAR; non-NULL; not retained; caller-owned; no size
 ** unit. Keep both callback and user_data cdata alive for the call. */
-CTD_API ctd_status ctd_apply_callback(
+CTD_TEST_API ctd_status ctd_apply_callback(
     int left,
     int right,
     ctd_binary_callback callback,
@@ -376,7 +386,7 @@ CTD_API ctd_status ctd_apply_callback(
 
 /* RETURN: OUT OPAQUE function pointer; nullable; borrowed library-owned static
 ** code; no size unit; must not be freed. */
-CTD_API ctd_binary_operation ctd_get_binary_operation(
+CTD_TEST_API ctd_binary_operation ctd_get_binary_operation(
     ctd_binary_operation_kind operation_kind
 );
 
@@ -384,32 +394,35 @@ CTD_API ctd_binary_operation ctd_get_binary_operation(
 /* RETURN: OUT OPAQUE; NULL on failure; retained as handle state; caller-owned
 ** after return; no size unit; release with ctd_free(). The allocation contains
 ** no nested resources and requires no type-specific teardown. */
-CTD_API ctd_counter *ctd_counter_create(int initial_value);
+CTD_TEST_API ctd_counter *ctd_counter_create(int initial_value);
 /* counter: IN OPAQUE; non-NULL; retained as handle state; caller-owned; no size
 ** unit. result: OUT SCALAR; non-NULL; not retained; caller-owned; no size unit. */
-CTD_API ctd_status ctd_counter_get(const ctd_counter *counter, int *result);
+CTD_TEST_API ctd_status ctd_counter_get(const ctd_counter *counter, int *result);
 /* counter: INOUT OPAQUE; non-NULL; retained as handle state; caller-owned; no
 ** size unit. result: OUT SCALAR; non-NULL; not retained; caller-owned; no size
 ** unit. */
-CTD_API ctd_status ctd_counter_add(ctd_counter *counter, int amount, int *result);
+CTD_TEST_API ctd_status ctd_counter_add(ctd_counter *counter, int amount, int *result);
 
 /* A genuinely opaque lifecycle object with a type-specific release operation.
 ** Its representation and owned state are private to ctd.c. */
 /* RETURN: OUT OPAQUE; NULL on failure; retained as handle state; caller-owned
 ** after return; no size unit; release with ctd_accumulator_destroy(). Do not
 ** pass this handle to ctd_free() because it owns nested allocated state. */
-CTD_API ctd_accumulator *ctd_accumulator_create(size_t capacity);
-CTD_API ctd_status ctd_accumulator_add(ctd_accumulator *accumulator, int32_t value);
-CTD_API ctd_status ctd_accumulator_get(
+CTD_TEST_API ctd_accumulator *ctd_accumulator_create(size_t capacity);
+CTD_TEST_API ctd_status ctd_accumulator_add(
+    ctd_accumulator *accumulator,
+    int32_t value
+);
+CTD_TEST_API ctd_status ctd_accumulator_get(
     const ctd_accumulator *accumulator,
     int64_t *result
 );
-CTD_API void ctd_accumulator_destroy(ctd_accumulator *accumulator);
+CTD_TEST_API void ctd_accumulator_destroy(ctd_accumulator *accumulator);
 
 /* pointer: IN OPAQUE allocation; nullable; consumed/released, not retained;
 ** caller-owned before call and originally allocated by CTD; no size unit. Only
 ** pass pointers documented for release with ctd_free(). The pointer is invalid
 ** after this call. */
-CTD_API void ctd_free(void *pointer);
+CTD_TEST_API void ctd_free(void *pointer);
 
 #endif /* CTD_API_H */

@@ -81,7 +81,7 @@ ctd.h
 
 * `ctd_api.h` contains the dual-use typedefs, enums, globals, callback types, structures, and function prototypes.
 * `ctd.h` supplies standard C includes, linkage/visibility macros, C++ linkage guards, and then includes `ctd_api.h`.
-* `cdef_header.py` performs a deliberately narrow textual transformation for CFFI. It strips C preprocessor wrapper lines used by this declaration catalogue (`#if`, `#ifdef`, `#ifndef`, `#endif`, and `#define`) and removes API declaration prefixes; `CTD_DATA_API` becomes `extern` for CDEF purposes.
+* `cdef_header.py` performs a deliberately narrow textual transformation for CFFI. It strips C preprocessor wrapper lines used by this declaration catalogue (`#if`, `#ifdef`, `#ifndef`, `#endif`, and `#define`) and removes API declaration prefixes; `CTD_TEST_DATA_API` becomes `extern` for CDEF purposes.
 * This transformation is **not a general C preprocessor**. The API declaration file is intentionally constrained so that removing those wrapper lines leaves one coherent declaration stream.
 * `FFI.cdef()` parses only that transformed declaration text. It does not follow `#include` directives, preprocess arbitrary C, or inspect `ctd.c`.
 * `FFI.set_source()` supplies a real compiler translation unit containing `#include "ctd.h"` together with sources, macros, include directories, library directories, and link options. The platform C compiler therefore validates the actual C declarations and layouts.
@@ -96,10 +96,10 @@ CTD separates symbol linkage from Python-level behavior.
 
 With no test API mode selected:
 
-```c
-CTD_API      -> static
-CTD_DATA_API -> static
-CTD_DATA_DEF -> static
+```text
+CTD_TEST_API      -> static
+CTD_TEST_DATA_API -> static
+CTD_TEST_DATA_DEF -> static
 ```
 
 This is the normal internal-linkage fallback.
@@ -108,10 +108,10 @@ This is the normal internal-linkage fallback.
 
 A static archive that will be linked from another translation unit requires ordinary external linkage:
 
-```c
-CTD_API      -> /* empty */
-CTD_DATA_API -> extern
-CTD_DATA_DEF -> /* empty */
+```text
+CTD_TEST_API      -> /* empty */
+CTD_TEST_DATA_API -> extern
+CTD_TEST_DATA_DEF -> /* empty */
 ```
 
 No `dllexport`, `dllimport`, or ELF visibility attribute is required.
@@ -120,27 +120,27 @@ No `dllexport`, `dllimport`, or ELF visibility attribute is required.
 
 On Windows/MSVC:
 
-```c
-CTD_API      -> __declspec(dllexport)
-CTD_DATA_DEF -> __declspec(dllexport)
-CTD_DATA_API -> extern __declspec(dllexport)
+```text
+CTD_TEST_API      -> __declspec(dllexport)
+CTD_TEST_DATA_DEF -> __declspec(dllexport)
+CTD_TEST_DATA_API -> extern __declspec(dllexport)
 ```
 
 On GCC/Clang shared-library builds:
 
-```c
-CTD_API      -> __attribute__((visibility("default")))
-CTD_DATA_DEF -> __attribute__((visibility("default")))
-CTD_DATA_API -> extern __attribute__((visibility("default")))
+```text
+CTD_TEST_API      -> __attribute__((visibility("default")))
+CTD_TEST_DATA_DEF -> __attribute__((visibility("default")))
+CTD_TEST_DATA_API -> extern __attribute__((visibility("default")))
 ```
 
 ### Shared-library consumer
 
 On Windows/MSVC:
 
-```c
-CTD_API      -> __declspec(dllimport)
-CTD_DATA_API -> extern __declspec(dllimport)
+```text
+CTD_TEST_API      -> __declspec(dllimport)
+CTD_TEST_DATA_API -> extern __declspec(dllimport)
 ```
 
 On ordinary ELF platforms, no import attribute is required; declarations use normal external linkage.
@@ -618,22 +618,36 @@ Nested CFFI type descriptions may be stored as structured JSON rather than expan
 
 ## Coding-agent prompt
 
-The following prompt is intended for a coding agent when this repository is mounted at `/cffi-ref` as a read-only reference:
+The following prompt is intended for a coding agent when this repository is mounted at "/cffi-ref" as a read-only reference:
 
 ````markdown
 ## Testing Across Python–C Interfaces
 
-Use the dummy `ctd` library in `/cffi-ref` as the reference implementation for designing testable C interfaces and creating CFFI/Pytest tests for other C projects.
+Use the demo CTD library in "/cffi-ref" as the reference implementation for designing testable C interfaces and creating CFFI/Pytest tests for other C projects.
+
+Before designing tests, inspect the relevant files under "/cffi-ref":
+
+* `AGENTS.md`
+* `README.md`
+* `ctd/src/ctd/ctd_api.h`
+* `ctd/src/ctd/ctd.h`
+* `ctd/src/ctd/ctd.c`
+* `ctd/tests/conftest.py`
+* applicable `ctd/tests/test_*.py` modules
+
+### Function and Globals Naming
+
+Prefer library-specific prefixes to namespace all globals and functions regardless of production visibility, as tested library may be amalgamated into other projects.
 
 ### Testability of Internal C Interfaces
 
 Where direct testing requires access to identifiers that are private in production builds, apply configurable API macros consistently to declarations and definitions.
 
-For a library named `ctd`, declarations may take forms such as:
+For a library named "ctd", declarations may take forms such as:
 
 ```c
-CTD_DATA_API int ctd_counter;
-CTD_API const char *ctd_version(void);
+CTD_TEST_DATA_API int ctd_counter;
+CTD_TEST_API const char *ctd_version(void);
 ```
 
 Define the corresponding API/data macros in the library's C-only header so ordinary production builds may retain internal linkage while dedicated test builds can provide plain external linkage or shared-library export/import linkage as required.
@@ -644,7 +658,7 @@ Follow the target library's naming and build conventions rather than copying CTD
 
 ### Annotating C API Contracts
 
-When implementing or modifying C APIs that will be tested through Python/CFFI, make the boundary contract visible in the C declaration comments. Follow the compact style used in `/cffi-ref/ctd/src/ctd/ctd_api.h`.
+When implementing or modifying C APIs that will be tested through Python/CFFI, make the boundary contract visible in the C declaration comments. Follow the compact style used in "/cffi-ref/ctd/src/ctd/ctd_api.h".
 
 Do not restate ordinary C semantics mechanically. Use these defaults unless the declaration says otherwise:
 
@@ -703,7 +717,7 @@ const char *ctd_select_static_string(int selector);
 char *ctd_alloc_greeting(const char *name);
 ```
 
-Do not repeat default properties such as `not retained` or `caller-owned` on every parameter when they add no information. State them only when needed to disambiguate the API or when the function departs from the defaults.
+Do not repeat default properties such as "not retained" or "caller-owned" on every parameter when they add no information. State them only when needed to disambiguate the API or when the function departs from the defaults.
 
 Always document these non-default cases explicitly:
 
@@ -725,16 +739,6 @@ Keep annotations adjacent to the declaration so that an agent implementing or te
 
 ### Designing Tests Across the Python/C Boundary
 
-Before designing tests, inspect the relevant files under `/cffi-ref`:
-
-* `AGENTS.md`
-* `README.md`
-* `ctd/src/ctd/ctd_api.h`
-* `ctd/src/ctd/ctd.h`
-* `ctd/src/ctd/ctd.c`
-* `ctd/tests/conftest.py`
-* the applicable `ctd/tests/test_*.py` modules
-
 Trace each reference test to its C declaration and implementation. Do not infer behavior from test names or copy a CTD pattern without first establishing the target API contract.
 
 For each target API, determine:
@@ -749,7 +753,7 @@ For each target API, determine:
 * whether pointers or callbacks are retained beyond the call;
 * mutations, side effects, and error reporting;
 * guarantees about caller-provided output state after failure;
-* the exact release function for every C-owned allocation.
+* exact release function for every C-owned allocation.
 
 Derive tests from that contract and cover meaningful success, boundary, and failure cases with descriptive parameter IDs.
 

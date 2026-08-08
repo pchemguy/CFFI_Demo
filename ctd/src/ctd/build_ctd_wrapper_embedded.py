@@ -30,7 +30,7 @@ else:
     LIBRARIES = []
 
 C_MACROS = [
-    (f"{PROGRAM_NAME.upper()}_C_API", None),
+    (f"{PROGRAM_NAME.upper()}_TEST", None),
     (f"{PROGRAM_NAME.upper()}_{'USE' if DYNAMIC else 'BUILD'}_LIB", None),
 ]
 
