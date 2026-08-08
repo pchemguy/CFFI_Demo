@@ -196,6 +196,27 @@ Preserve the distinction between declarations and definitions for global data.
 
 Do not replace this scheme by permanently removing `static` from production-style symbols.
 
+### Test-only interfaces
+
+A directly tested C interface does **not** have to exist in production builds.
+
+There are two valid patterns:
+
+1. **Expose an existing production-internal interface for tests.** Keep the declaration and definition present in all builds and use the established test API macro so normal builds retain `static` linkage while test builds expose the symbol.
+2. **Define a genuinely test-only interface.** When an API exists solely for testing or diagnostics, both its declaration in `ctd_api.h` and its matching definition in `ctd.c` may be enclosed in:
+
+```c
+#if defined(CTD_TEST)
+
+/* declaration or definition */
+
+#endif
+```
+
+Use the second pattern only when the interface itself should not exist in production; it is optional, not a requirement for every tested internal function.
+
+Keep declaration and definition guards consistent. Any conditional wrapper added to `ctd_api.h` must also remain compatible with the deliberately narrow CDEF transformation used by `cdef_header.py`.
+
 ---
 
 ## C Style

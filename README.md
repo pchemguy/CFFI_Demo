@@ -145,6 +145,43 @@ CTD_TEST_DATA_API -> extern __declspec(dllimport)
 
 On ordinary ELF platforms, no import attribute is required; declarations use normal external linkage.
 
+### Test-only C interfaces
+
+A test interface does not have to exist in production builds.
+
+When useful, declarations in `ctd_api.h` and their matching definitions in `ctd.c` may both be guarded with `CTD_TEST`:
+
+```c
+/* ctd_api.h */
+#if defined(CTD_TEST)
+
+CTD_TEST_API int ctd_test_helper(int value);
+
+#endif
+```
+
+```c
+/* ctd.c */
+#if defined(CTD_TEST)
+
+CTD_TEST_API int ctd_test_helper(int value) {
+    return value;
+}
+
+#endif
+```
+
+This is optional. Use it when the interface itself exists only to support testing or diagnostics.
+
+Do not apply the guard mechanically to every tested internal function. An ordinary production function may remain present in all builds and use `CTD_TEST_API` only to change its linkage from internal `static` linkage to test-visible external linkage.
+
+The distinction is:
+
+* **production interface tested directly:** present in all builds; `CTD_TEST_API` controls test exposure;
+* **test-only interface:** declaration and definition may both be enclosed in `#if defined(CTD_TEST)`.
+
+Because `ctd_api.h` is also transformed into CFFI CDEF input, its supported test guards must remain compatible with `cdef_header.py`: the C compiler evaluates them normally, while the narrow CDEF transformation removes the wrapper directives and retains the enclosed declarations for the test wrapper.
+
 ## Build modes and platform artifacts
 
 Both wrapper build modes deliberately generate the same import name, `_ctd_wrapper`, so the same demo and test suite exercise either implementation. A Python process must load only the wrapper produced for its current matrix step.
@@ -635,15 +672,24 @@ Before designing tests, inspect the relevant files under "/cffi-ref":
 * `ctd/tests/conftest.py`
 * applicable `ctd/tests/test_*.py` modules
 
-### Function and Globals Naming
+---
+
+### Function, Macro, and Globals Naming
 
 Prefer library-specific prefixes to namespace all globals and functions regardless of production visibility, as tested library may be amalgamated into other projects.
 
+For a library named "ctd", test builds may be conrolled by macros:
+
+```text
+CTD_TEST <- enables test builds
+CTD_TEST_API
+CTD_TEST_DATA_API
+CTD_TEST_DEF_API
+```
+
 ### Testability of Internal C Interfaces
 
-Where direct testing requires access to identifiers that are private in production builds, apply configurable API macros consistently to declarations and definitions.
-
-For a library named "ctd", declarations may take forms such as:
+Where direct testing requires access to identifiers that are private in production builds, apply configurable API macros consistently to declarations and definitions. For a library named "ctd", declarations may take forms such as:
 
 ```c
 CTD_TEST_DATA_API int ctd_counter;
@@ -652,7 +698,26 @@ CTD_TEST_API const char *ctd_version(void);
 
 Define the corresponding API/data macros in the library's C-only header so ordinary production builds may retain internal linkage while dedicated test builds can provide plain external linkage or shared-library export/import linkage as required.
 
-Follow the target library's naming and build conventions rather than copying CTD macro names mechanically.
+---
+
+### Test-only interfaces
+
+A directly tested C interface does **not** have to exist in production builds.
+
+There are two valid patterns:
+
+1. **Expose an existing production-internal interface for tests.** Keep the declaration and definition present in all builds and use the established test API macro so normal builds retain `static` linkage while test builds expose the symbol.
+2. **Define a genuinely test-only interface.** When an API exists solely for testing or diagnostics, both its declaration in `ctd_api.h` and its matching definition in `ctd.c` may be enclosed in:
+
+```c
+#if defined(CTD_TEST)
+
+/* declaration or definition */
+
+#endif
+```
+
+Use the second pattern only when the interface itself should not exist in production; it is optional, not a requirement for every tested internal function.
 
 ---
 
@@ -776,5 +841,6 @@ Reuse the applicable CTD CFFI patterns for:
 * CTD-owned allocations with explicit `try/finally` cleanup;
 * opaque handles with type-specific destruction.
 
-Use CTD as a pattern library, not as a substitute for analysis.
+Use CTD as a pattern library, not as a substitute for analysis. 
+Follow the target library's naming and build conventions rather than copying CTD macro and symbol names mechanically.
 ````
