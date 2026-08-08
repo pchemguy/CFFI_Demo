@@ -2,13 +2,21 @@
 url: https://chatgpt.com/c/6a73901c-5730-83ed-a63c-4df0ff2d5d98
 ---
 
-## Objective and Scope
+## 📗 Problem Definition
+
+> [!NOTE] Prompt
+> 
+> I am thinking about reshuffling my CFFI demo code, which is right now just one big main def. BUT, I realize, what I actually need is to have a better definition of objective and scope. My ultimate objective is a robust means to test C code via Pytest. So the reason I have been thinking in terms of creating a higher-level auto wrapper is actually because I want test creation by a coding agent and I reasoned that pure Python interface might be simpler for an agent. But I also have to be practical and find a balance of my time invested in any contraptions, which proves to be substantial. So I may need to redefine the scope. I actually do not need to have agent to create tests for arbitrarily complex/obfuscated/twisted C code. So I guess I should better define a practical suite of patterns that would reasonably cover a large portion of non-system C use case (I do not care about hardware programming for now, or some special system things development; the focus is more on code where certain common algos and data handling is implemented for the sake of speed, no for the ability to entertain arbitrary control of the processes/environment). If I define such a suite of patterns, I can reshuffle the demo so that I would have basically a nice suite of one/few shot examples. I will accept the need to ask the agent to use CFFI directly, but I will be able supply the C source, function docstrings, if necessary, plus few shot examples.
+>
+> I am trying to define the patterns. I guess, supplying and receiving as return standard numeric scalars; supplying and returning strings (argument memory managed by cffi; for a return value, the string is immediately copied to memory managed by cffi, if it is not already implemented by cffi); supplying pointer to a structure/array with memory allocated by cffi; return structure pointer via return; and then, I guess, out and inout args).
+
+### Objective and Scope
 
 Your revised direction is sound: **do not build a general wrapper generator**. Define a constrained C interface profile that a coding agent can test directly through CFFI, supported by a compact catalogue of canonical examples.
 
 The key is to define the scope in terms of **data-flow and ownership patterns**, not merely C types.
 
-### Proposed objective
+#### Proposed objective
 
 Build a reusable Pytest/CFFI testing pattern for ordinary computational C modules that:
 
@@ -29,13 +37,13 @@ The agent then writes ordinary tests using `ffi` and `lib`.
 
 ---
 
-### The practical interface pattern set
+#### The practical interface pattern set
 
 I would divide the supported scope into the following groups.
 
-#### 1. Scalar values
+##### 1. Scalar values
 
-##### Scalar input
+###### Scalar input
 
 ```c
 int ctd_abs(int value);
@@ -58,7 +66,7 @@ Cover:
 * `_Bool` or a documented integer Boolean convention;
 * enums represented as integer values.
 
-##### Scalar return
+###### Scalar return
 
 This is the simplest and most important pattern. It should include:
 
@@ -67,7 +75,7 @@ This is the simplest and most important pattern. It should include:
 * status-code returns;
 * count or length returns.
 
-##### Scalar out and inout
+###### Scalar out and inout
 
 ```c
 ctd_status ctd_divide(
@@ -99,11 +107,11 @@ These should be explicit patterns rather than treated as incidental pointer usag
 
 ---
 
-#### 2. Strings and byte sequences
+##### 2. Strings and byte sequences
 
 Strings need a stricter contract than numeric scalars.
 
-##### Input null-terminated text
+###### Input null-terminated text
 
 ```c
 size_t ctd_utf8_length(const char *text);
@@ -130,7 +138,7 @@ For your scope, I recommend:
 
 > Input string pointers are borrowed only for the duration of the call. The callee must not retain them.
 
-##### Input byte sequence with explicit length
+###### Input byte sequence with explicit length
 
 ```c
 uint32_t ctd_checksum(
@@ -148,7 +156,7 @@ result = lib.ctd_checksum(data, len(data))
 
 This is distinct from a string. It permits embedded zero bytes and requires an explicit element count.
 
-##### Returned borrowed string
+###### Returned borrowed string
 
 ```c
 const char *ctd_status_name(ctd_status status);
@@ -172,7 +180,7 @@ This pattern must specify that the pointer is:
 * null-terminated;
 * encoded according to the documented encoding.
 
-##### Returned owned string
+###### Returned owned string
 
 ```c
 char *ctd_format_value(int value);
@@ -206,7 +214,7 @@ value = ffi.string(pointer).decode("utf-8")
 
 However, explicit `try/finally` is often clearer in ownership tests.
 
-##### Caller-provided output string buffer
+###### Caller-provided output string buffer
 
 ```c
 ctd_status ctd_format_value(
@@ -230,7 +238,7 @@ status = lib.ctd_format_value(42, buffer, capacity, required)
 
 assert status == lib.CTD_OK
 assert ffi.string(buffer) == b"42"
-assert required[0] == 3  # Contract must say whether this includes NUL.
+assert required[0] == 3  ## Contract must say whether this includes NUL.
 ```
 
 The capacity semantics must explicitly state whether capacity and required length are measured in:
@@ -243,11 +251,11 @@ and whether the terminating zero is included.
 
 ---
 
-####  3. Arrays
+#####  3. Arrays
 
 Arrays should be treated separately from strings even when represented by pointers.
 
-#####  Read-only input array
+######  Read-only input array
 
 ```c
 double ctd_sum(
@@ -272,7 +280,7 @@ Contract:
 * whether `NULL` is valid when count is zero;
 * callee does not retain the pointer.
 
-#####  Mutable in-place array
+######  Mutable in-place array
 
 ```c
 void ctd_scale(
@@ -293,7 +301,7 @@ assert list(values) == [2.0, 4.0, 6.0]
 
 This is an array `inout` pattern.
 
-#####  Caller-provided output array
+######  Caller-provided output array
 
 ```c
 ctd_status ctd_sequence(
@@ -313,7 +321,7 @@ This needs precise semantics for:
 * whether partial output is allowed;
 * whether `written` means produced, required, or both depending on status.
 
-#####  Returned borrowed array
+######  Returned borrowed array
 
 ```c
 const double *ctd_coefficients(size_t *count);
@@ -332,7 +340,7 @@ values = list(ffi.unpack(pointer, count[0]))
 
 The pointer must remain valid through the copy and must not be freed by Python.
 
-#####  Returned owned array
+######  Returned owned array
 
 ```c
 double *ctd_make_sequence(
@@ -358,11 +366,11 @@ Again, the element count and deallocator are mandatory parts of the contract.
 
 ---
 
-####  4. Structures
+#####  4. Structures
 
 You should distinguish four materially different structure patterns.
 
-#####  Structure passed by value
+######  Structure passed by value
 
 ```c
 typedef struct ctd_point {
@@ -382,7 +390,7 @@ result = lib.ctd_point_length(point[0])
 
 This is straightforward, but ABI-sensitive compared with pointer-based access. Because you are using CFFI API mode, it is reasonable to support.
 
-#####  Structure returned by value
+######  Structure returned by value
 
 ```c
 ctd_point ctd_point_make(double x, double y);
@@ -399,7 +407,7 @@ assert point.y == pytest.approx(4.0)
 
 This is often preferable to returning an allocated structure pointer when the structure is small and plain.
 
-#####  Structure passed by pointer
+######  Structure passed by pointer
 
 ```c
 double ctd_point_length(const ctd_point *point);
@@ -414,7 +422,7 @@ result = lib.ctd_point_length(point)
 
 This covers borrowed structure input.
 
-#####  Structure modified in place
+######  Structure modified in place
 
 ```c
 void ctd_point_translate(
@@ -426,7 +434,7 @@ void ctd_point_translate(
 
 This is the structure `inout` pattern.
 
-#####  Caller-allocated output structure
+######  Caller-allocated output structure
 
 ```c
 ctd_status ctd_point_parse(
@@ -453,7 +461,7 @@ result.x
 result[0].x
 ```
 
-#####  Returned borrowed structure pointer
+######  Returned borrowed structure pointer
 
 ```c
 const ctd_config *ctd_default_config(void);
@@ -463,7 +471,7 @@ The pointer is owned elsewhere. Python may inspect or copy its fields but must n
 
 A shallow Python copy can be made field by field. Copying arbitrary structures wholesale is not always sufficient because the structure may contain pointers.
 
-#####  Returned owned structure pointer
+######  Returned owned structure pointer
 
 ```c
 ctd_context *ctd_context_create(void);
@@ -492,7 +500,7 @@ It covers stateful algorithmic objects without requiring a high-level wrapper.
 
 ---
 
-####  5. Out and inout parameters
+#####  5. Out and inout parameters
 
 Rather than considering these a separate type category, define them as a **direction dimension** applicable to scalars, structures, and arrays.
 
@@ -529,11 +537,11 @@ Qualifiers alone are not enough to infer the contract. A non-const pointer may b
 
 ---
 
-####  6. Error-reporting patterns
+#####  6. Error-reporting patterns
 
 Your example suite should include a small number of sanctioned error models.
 
-#####  Status return plus output arguments
+######  Status return plus output arguments
 
 ```c
 ctd_status ctd_parse_int(
@@ -544,7 +552,7 @@ ctd_status ctd_parse_int(
 
 This should probably be the preferred general pattern.
 
-#####  Sentinel return
+######  Sentinel return
 
 ```c
 const char *ctd_lookup_name(int id);
@@ -554,7 +562,7 @@ Returns `NULL` when not found.
 
 Suitable when the sentinel is unambiguous.
 
-#####  Boolean success return
+######  Boolean success return
 
 ```c
 bool ctd_try_parse_int(
@@ -565,7 +573,7 @@ bool ctd_try_parse_int(
 
 Suitable for simple success/failure cases without detailed diagnostics.
 
-#####  Count or signed error return
+######  Count or signed error return
 
 ```c
 ptrdiff_t ctd_decode(
@@ -582,7 +590,7 @@ I would exclude global `errno`-style error handling from the initial profile unl
 
 ---
 
-####  7. Patterns that should be explicitly out of scope
+#####  7. Patterns that should be explicitly out of scope
 
 A strong scope definition is partly an exclusion list.
 
@@ -616,7 +624,7 @@ This does not say such code cannot be tested. It says it is outside the reusable
 
 ---
 
-### Recommended canonical pattern catalogue
+#### Recommended canonical pattern catalogue
 
 You do not need dozens of tiny functions. A compact but systematic suite could contain approximately these examples:
 
@@ -650,17 +658,17 @@ That is already a broad practical coverage set.
 
 ---
 
-### The central ownership rules
+#### The central ownership rules
 
 I recommend making these rules foundational.
 
-#### Caller-owned input
+##### Caller-owned input
 
 Memory allocated using `ffi.new()` remains owned by the Python/CFFI side.
 
 The C function may read or modify it according to the parameter direction, but may not retain the pointer after returning unless the contract explicitly establishes a longer-lived owner.
 
-#### Borrowed C return
+##### Borrowed C return
 
 The C side owns the returned pointer.
 
@@ -675,19 +683,19 @@ or explicit field extraction.
 
 Python does not free the pointer.
 
-#### Owned C return
+##### Owned C return
 
 The C side transfers ownership to the caller.
 
 The API must provide the exact matching deallocator, and the test must call it.
 
-#### Caller-provided output
+##### Caller-provided output
 
 Python allocates storage using `ffi.new()` and passes capacity or count as required.
 
 The C function writes only within the declared capacity.
 
-#### No allocator mixing
+##### No allocator mixing
 
 Memory allocated by C is released by C.
 
@@ -697,7 +705,7 @@ This rule eliminates a large class of portability and CRT-boundary problems.
 
 ---
 
-### One important refinement: copying pointer-containing structures
+#### One important refinement: copying pointer-containing structures
 
 Your general rule that returned data should be copied into Python-owned memory is good, but structure copying needs care.
 
@@ -739,7 +747,7 @@ I would support descriptor structures, but only through explicit per-field contr
 
 ---
 
-### Suggested final scope statement
+#### Suggested final scope statement
 
 You could formulate the project scope approximately as follows:
 
